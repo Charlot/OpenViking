@@ -105,12 +105,13 @@ const BINARY_EXTS = [
   'bin',
 ]
 const TEXT_FILES = ['readme', 'license', 'dockerfile', 'makefile']
-const HIDDEN_SUMMARY_FILENAMES = new Set([
-  '.abstract',
-  '.abstract.md',
-  '.overview',
-  '.overview.md',
-])
+// const HIDDEN_SUMMARY_FILENAMES = new Set([
+//   '.abstract',
+//   '.abstract.md',
+//   '.overview',
+//   '.overview.md',
+// ])
+const HIDDEN_SUMMARY_FILENAMES = new Set<string>([])
 
 function pickFirstNonEmpty(values: Array<unknown>): unknown {
   for (const value of values) {
