@@ -178,6 +178,7 @@ class ServerConfig(BaseModel):
     # behind a reverse proxy that does not forward X-Forwarded-* headers.
     public_base_url: Optional[str] = None
     upload_signed_ttl_seconds: int = 600
+    show_hidden_files: bool = True
     temp_upload: TempUploadConfig = Field(default_factory=TempUploadConfig)
     tool_output_externalization: ToolOutputExternalizationConfig = Field(
         default_factory=ToolOutputExternalizationConfig

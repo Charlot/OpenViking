@@ -23,6 +23,7 @@ interface DirBrowserProps {
   activeIndex: number
   loading?: boolean
   errored?: boolean
+  showHidden?: boolean
   onCursorChange: (index: number) => void
   onEnterDir: (uri: string) => void
   onOpenFile: (uri: string) => void
@@ -45,6 +46,7 @@ export function DirBrowser({
   activeIndex,
   loading = false,
   errored = false,
+  showHidden = true,
   onCursorChange,
   onEnterDir,
   onOpenFile,
@@ -63,7 +65,7 @@ export function DirBrowser({
   const debouncedSubdirUri = useDebouncedValue(subdirUri, 150)
   const subdirQuery = useVikingFsList(
     debouncedSubdirUri || VIKING_ROOT_URI,
-    { output: 'agent', showAllHidden: true, nodeLimit: 200 },
+    { output: 'agent', showAllHidden: showHidden, nodeLimit: 200 },
     Boolean(debouncedSubdirUri),
   )
   const subdirItems = useMemo(() => {

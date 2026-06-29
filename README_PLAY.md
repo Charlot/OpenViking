@@ -129,11 +129,7 @@
 
 ```bash
 # 编译（产物在 web-studio/dist/，必须指定 SPA base path）
-cd web-studio && npm run build -- --base="/studio/"
-
-# 复制到服务端（覆盖整个目录，不清旧文件会导致残留）
-rm -rf ../openviking/web_studio/dist
-cp -r dist ../openviking/web_studio/dist
+cd web-studio && npm run build -- --base="/studio/" && rm -rf ../openviking/web_studio/dist && cp -r dist ../openviking/web_studio/dist
 ```
 
 ### 数据流
@@ -184,6 +180,61 @@ cp -r dist ../openviking/web_studio/dist
 **TTL：** completed=24h，failed=7d，running=无限制。无 delete task API。
 
 **清理孤儿 task：** 删 MinIO 中 `default/_system/tasks/` 下的 JSON + 清 QueueFS SQLite + 重启。
+
+## 2. 已知限制与注意事项
+
+### 原始文件不保留
+
+上传的原始文件（PDF、DOCX 等）在解析后**不会保留**。入库流程为：
+
+```
+上传 PDF: 新员工公司指南.pdf
+         ↓ 解析（PyPDF/MinerU/...）
+         ↓ 丢弃原始 PDF ❌
+解析产物:
+├── *.md               ← 全文 Markdown（唯一保留的文本）
+├── page*_img*.png     ← 提取的图片（二进制原样保留）
+└── .abstract.md / .overview.md  ← AI 自动生成
+```
+
+| 端点 | 返回内容 |
+|------|---------|
+| `/api/v1/content/read` | 解析后的 Markdown 文本 |
+| `/api/v1/content/download` | 二进制文件的原始字节（图片可用） |
+| `/api/v1/content/abstract` | AI 生成的摘要 |
+| 原始 PDF/DOCX | **❌ 不保留** |
+
+> 图片是原样保留的（`page10_img4.png` 可通过 `/download` 获取），但原始文档本身不存在。需要保留原件时，须另行备份。
+
+### viking:// 协议与外部系统访问
+
+文档中的图片和链接使用内部 `viking://` 协议：
+
+```markdown
+[Page 10 Image 4](viking://resources/新员工公司指南/page10_img4.png)
+```
+
+**外部系统无法直接渲染**，因为：
+1. `viking://` 不是标准 HTTP URL
+2. `/api/v1/content/download` 需要 `X-API-Key` 头鉴权
+3. 外部系统用户没有 OpenViking 的 API Key
+
+**解决方案：签名下载 URL（Signed Download URL）**
+
+```
+原始 Markdown 中的链接:
+[Page 10 Image 4](viking://resources/新员工公司指南/page10_img4.png)
+
+外部系统处理后:
+[Page 10 Image 4](http://server:11933/api/v1/content/download?uri=...&token=eyJ...&expires=...)
+```
+
+签名 URL 的好处：
+- **后端无关**：S3/local/memory 后端统一接口，不暴露存储拓扑
+- **时效控制**：token 过期自动失效
+- **零改造**：外部系统只需替换 markdown 中的链接
+
+> 当前代码中已有 `temp_upload_signed`（上传方向的签名 token 机制），下载方向的签名 URL 尚未实现。
 
 ## 环境要求
 
@@ -268,61 +319,6 @@ openviking-server doctor
 ```
 
 逐项验证：AGFS 存储、VectorDB、Embedding API、VLM API、API Key 管理器。
-
-### 编辑配置
-
-配置示例：
-
-```json
-{
-  "server": {
-    "host": "0.0.0.0",
-    "port": 1933,
-    "root_api_key": "ak-xxx"
-  },
-  "storage": {
-    "workspace": "./data",
-    "vectordb": {
-      "name": "context",
-      "backend": "local",
-      "project": "default"
-    },
-    "agfs": {
-      "backend": "s3",
-      "s3": {
-        "bucket": "cycloneclaw",
-        "endpoint": "http://192.168.198.128:9000",
-        "access_key": "...",
-        "secret_key": "...",
-        "use_ssl": false,
-        "use_path_style": true
-      }
-    }
-  },
-  "embedding": {
-    "dense": {
-      "provider": "openai",
-      "api_key": "...",
-      "api_base": "http://10.86.30.66:31012/ai/gateway/v1/embeddings",
-      "model": "bge-m3",
-      "dimension": 1024
-    }
-  },
-  "vlm": {
-    "provider": "openai",
-    "api_key": "...",
-    "api_base": "http://10.86.30.66:31012/ai/gateway/v1",
-    "model": "kimi-k2.6"
-  },
-  "rerank": {
-    "provider": "openai",
-    "api_key": "...",
-    "api_base": "http://10.86.30.66:31012/ai/gateway/v1/rerank",
-    "model": "bge-reranker-v2-m3",
-    "threshold": 0.1
-  }
-}
-```
 
 ### 配置说明
 

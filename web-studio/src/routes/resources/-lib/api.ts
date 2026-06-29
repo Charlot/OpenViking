@@ -72,7 +72,7 @@ export async function fetchFsList(
 
     return {
       uri: normalizedUri,
-      entries: normalizeFsEntries(result, normalizedUri),
+      entries: normalizeFsEntries(result, normalizedUri, options.showAllHidden ?? true),
     }
   } catch (error) {
     throw toVikingApiError(error)
@@ -102,7 +102,7 @@ export async function fetchFsTree(
 
     return {
       rootUri: normalizedRootUri,
-      nodes: normalizeFsEntries(result, normalizedRootUri),
+      nodes: normalizeFsEntries(result, normalizedRootUri, options.showAllHidden ?? true),
     }
   } catch (error) {
     throw toVikingApiError(error)

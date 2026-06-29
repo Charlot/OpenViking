@@ -105,13 +105,12 @@ const BINARY_EXTS = [
   'bin',
 ]
 const TEXT_FILES = ['readme', 'license', 'dockerfile', 'makefile']
-// const HIDDEN_SUMMARY_FILENAMES = new Set([
-//   '.abstract',
-//   '.abstract.md',
-//   '.overview',
-//   '.overview.md',
-// ])
-const HIDDEN_SUMMARY_FILENAMES = new Set<string>([])
+const HIDDEN_SUMMARY_FILENAMES = new Set([
+  '.abstract',
+  '.abstract.md',
+  '.overview',
+  '.overview.md',
+])
 
 function pickFirstNonEmpty(values: Array<unknown>): unknown {
   for (const value of values) {
@@ -408,13 +407,20 @@ function isHiddenSummaryEntry(entry: VikingFsEntry): boolean {
 export function normalizeFsEntries(
   result: unknown,
   currentUri: string,
+  showAllHidden: boolean = false,
 ): Array<VikingFsEntry> {
   const normalizedCurrentUri = normalizeDirUri(currentUri)
 
+  const normalizeAndFilter = (items: Array<unknown>) => {
+    const mapped = items.map((item) => normalizeFsEntry(item, normalizedCurrentUri))
+    if (showAllHidden) {
+      return mapped
+    }
+    return mapped.filter((entry) => !isHiddenSummaryEntry(entry))
+  }
+
   if (Array.isArray(result)) {
-    return result
-      .map((item) => normalizeFsEntry(item, normalizedCurrentUri))
-      .filter((entry) => !isHiddenSummaryEntry(entry))
+    return normalizeAndFilter(result)
   }
 
   if (isRecord(result)) {
@@ -427,9 +433,7 @@ export function normalizeFsEntries(
     ]
     for (const bucket of buckets) {
       if (Array.isArray(bucket)) {
-        return bucket
-          .map((item) => normalizeFsEntry(item, normalizedCurrentUri))
-          .filter((entry) => !isHiddenSummaryEntry(entry))
+        return normalizeAndFilter(bucket)
       }
     }
   }

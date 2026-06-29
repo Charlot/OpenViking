@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from openviking.core.path_variables import resolve_path_variables
 from openviking.pyagfs.exceptions import AGFSClientError, AGFSNotFoundError
 from openviking.server.auth import get_request_context
-from openviking.server.dependencies import get_service
+from openviking.server.dependencies import get_server_config, get_service
 from openviking.server.error_mapping import map_exception
 from openviking.server.identity import RequestContext
 from openviking.server.models import Response
@@ -26,13 +26,16 @@ async def ls(
     recursive: bool = Query(False, description="List all subdirectories recursively"),
     output: str = Query("agent", description="Output format: original or agent"),
     abs_limit: int = Query(256, description="Abstract limit (only for agent output)"),
-    show_all_hidden: bool = Query(True, description="List all hidden files, like -a"),
+    show_all_hidden: Optional[bool] = Query(None, description="List all hidden files, like -a"),
     node_limit: int = Query(1000, description="Maximum number of nodes to list"),
     limit: Optional[int] = Query(None, description="Alias for node_limit"),
     _ctx: RequestContext = Depends(get_request_context),
 ):
     """List directory contents."""
     service = get_service()
+    if show_all_hidden is None:
+        config = get_server_config()
+        show_all_hidden = config.show_hidden_files if config else True
     actual_node_limit = limit if limit is not None else node_limit
     # Resolve path variables
     uri = resolve_path_variables(uri)
@@ -62,7 +65,7 @@ async def tree(
     uri: str = Query(..., description="Viking URI"),
     output: str = Query("agent", description="Output format: original or agent"),
     abs_limit: int = Query(256, description="Abstract limit (only for agent output)"),
-    show_all_hidden: bool = Query(True, description="List all hidden files, like -a"),
+    show_all_hidden: Optional[bool] = Query(None, description="List all hidden files, like -a"),
     node_limit: int = Query(1000, description="Maximum number of nodes to list"),
     limit: Optional[int] = Query(None, description="Alias for node_limit"),
     level_limit: int = Query(3, description="Maximum depth level to traverse"),
@@ -70,6 +73,9 @@ async def tree(
 ):
     """Get directory tree."""
     service = get_service()
+    if show_all_hidden is None:
+        config = get_server_config()
+        show_all_hidden = config.show_hidden_files if config else True
     actual_node_limit = limit if limit is not None else node_limit
     # Resolve path variables
     uri = resolve_path_variables(uri)

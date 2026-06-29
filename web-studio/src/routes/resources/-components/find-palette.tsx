@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  Eye,
+  EyeOff,
   FileIcon,
   FolderIcon,
   FolderOpen,
@@ -83,6 +85,7 @@ export function FindPalette({
 }: FindPaletteProps) {
   const { t } = useTranslation('resources')
   const [query, setQuery] = useState('')
+  const [showHidden, setShowHidden] = useState(true)
   const [findTargetUri, setFindTargetUri] = useState(() =>
     normalizeDirUri(scopeUri || PALETTE_ROOT_URI),
   )
@@ -109,7 +112,7 @@ export function FindPalette({
 
   const idleBrowseQuery = useVikingFsList(
     findTargetUri,
-    { output: 'agent', showAllHidden: true },
+    { output: 'agent', showAllHidden: showHidden },
     showIdleBrowse,
   )
   const idleEntries = useMemo(
@@ -119,7 +122,7 @@ export function FindPalette({
 
   const treeQuery = useVikingFsTree(
     searchSpec?.rootUri || PALETTE_ROOT_URI,
-    { output: 'agent', showAllHidden: true, nodeLimit: 2000, levelLimit: 100 },
+    { output: 'agent', showAllHidden: showHidden, nodeLimit: 2000, levelLimit: 100 },
     mode.kind === 'search' && Boolean(searchSpec),
   )
   const filteredEntries = useMemo(() => {
@@ -131,7 +134,7 @@ export function FindPalette({
   // keyboard handling can live in one place. DirBrowser is now a pure view.
   const dirListQuery = useVikingFsList(
     mode.kind === 'dirBrowse' ? mode.uri : PALETTE_ROOT_URI,
-    { output: 'agent', showAllHidden: true, nodeLimit: 200 },
+    { output: 'agent', showAllHidden: showHidden, nodeLimit: 200 },
     mode.kind === 'dirBrowse',
   )
   const dirItems = useMemo(() => {
@@ -407,6 +410,18 @@ export function FindPalette({
                 <X className="size-3" />
               </button>
             )}
+            <button
+              type="button"
+              className="ml-2 flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors hover:bg-muted hover:text-foreground"
+              title={showHidden ? 'Hide system files' : 'Show system files'}
+              onClick={() => setShowHidden((v) => !v)}
+            >
+              {showHidden ? (
+                <Eye className="size-3" />
+              ) : (
+                <EyeOff className="size-3" />
+              )}
+            </button>
           </span>
         </div>
 
@@ -426,6 +441,7 @@ export function FindPalette({
                 onClose()
               }}
               onGoBack={goToParent}
+              showHidden={showHidden}
             />
           ) : (
             <>

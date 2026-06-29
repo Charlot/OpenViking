@@ -1096,6 +1096,7 @@ class SemanticProcessor(DequeueHandlerBase):
                         )
                         async with llm_sem:
                             with bind_telemetry_stage("resource_summarize"):
+                                logger.info("[VLM:summary:ast_llm] file=%s", file_path)
                                 summary = await vlm.get_completion_async(prompt)
                         return result(summary.strip())
                 if skeleton_text is None:
@@ -1110,6 +1111,7 @@ class SemanticProcessor(DequeueHandlerBase):
             )
             async with llm_sem:
                 with bind_telemetry_stage("resource_summarize"):
+                    logger.info("[VLM:summary:code] file=%s", file_path)
                     summary = await vlm.get_completion_async(prompt)
             return result(summary.strip())
 
@@ -1125,6 +1127,7 @@ class SemanticProcessor(DequeueHandlerBase):
 
         async with llm_sem:
             with bind_telemetry_stage("resource_summarize"):
+                logger.info("[VLM:summary:file] file=%s prompt=%s", file_path, prompt_id)
                 summary = await vlm.get_completion_async(prompt)
         return result(summary.strip())
 
@@ -1375,6 +1378,10 @@ class SemanticProcessor(DequeueHandlerBase):
             )
 
             with bind_telemetry_stage("resource_summarize"):
+                logger.info(
+                    "[VLM:overview] dir=%s files=%d children=%d",
+                    dir_uri, len(file_summaries), len(children_abstracts),
+                )
                 overview = await vlm.get_completion_async(prompt)
 
             # Post-process: replace [number] with actual file name
@@ -1470,6 +1477,7 @@ class SemanticProcessor(DequeueHandlerBase):
             try:
                 async with llm_sem:
                     with bind_telemetry_stage("resource_summarize"):
+                        logger.info("[VLM:overview-partial] dir=%s batch=%d/%d", dir_uri, batch_idx + 1, total_batches)
                         partial = await vlm.get_completion_async(prompt)
                 partial = re.sub(r"\[(\d+)\]", make_replacer(batch_index_map), partial)
                 partial_overviews[batch_idx] = partial.strip()
@@ -1502,6 +1510,10 @@ class SemanticProcessor(DequeueHandlerBase):
                 },
             )
             with bind_telemetry_stage("resource_summarize"):
+                logger.info(
+                    "[VLM:overview-batched] dir=%s batches=%d children=%d",
+                    dir_uri, len(partials), len(children_abstracts),
+                )
                 overview = await vlm.get_completion_async(prompt)
             return overview.strip()
         except Exception as e:
