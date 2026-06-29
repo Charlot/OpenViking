@@ -100,7 +100,6 @@ impl CliContext {
             auth.account,
             auth.user,
             self.config.effective_actor_peer_id(),
-            self.config.agent_id.clone(),
             timeout_secs.unwrap_or(self.config.timeout),
             self.profile.unwrap_or(self.config.profile),
             self.config.extra_headers.clone(),
@@ -951,10 +950,11 @@ enum Commands {
         /// Viking URI
         #[arg(value_name = "uri")]
         uri: String,
-        /// Reindex mode
+        /// Reindex mode: vectors_only rebuilds vectors; semantic_and_vectors regenerates semantic artifacts, then vectors
         #[arg(
             long,
             default_value = "vectors_only",
+            value_parser = ["vectors_only", "semantic_and_vectors"],
             value_name = "mode",
             help_heading = "Common options"
         )]
@@ -3667,7 +3667,7 @@ mod tests {
             .expect("skills list should parse");
         match list.command {
             Commands::Skills {
-                action: SkillCommands::List { node_limit },
+                action: SkillCommands::List { node_limit, .. },
             } => assert_eq!(node_limit, 25),
             _ => panic!("expected skills list"),
         }
@@ -3789,7 +3789,9 @@ mod tests {
             .expect("skills remove --yes should parse");
         match remove.command {
             Commands::Skills {
-                action: SkillCommands::Remove { skills, yes, all },
+                action: SkillCommands::Remove {
+                    skills, yes, all, ..
+                },
             } => {
                 assert_eq!(skills, vec!["foo", "bar"]);
                 assert!(yes);
@@ -4224,7 +4226,7 @@ mod tests {
     }
 
     #[test]
-    fn cli_context_maps_legacy_agent_id_to_actor_peer_scope() {
+    fn cli_context_maps_agent_id_to_actor_peer_scope() {
         let config = Config {
             url: DEFAULT_CUSTOM_URL.to_string(),
             api_key: Some("test-key".to_string()),
@@ -4258,7 +4260,6 @@ mod tests {
         let client = ctx.get_client();
 
         assert_eq!(client.actor_peer_id(), Some("legacy-agent"));
-        assert_eq!(client.legacy_agent_id(), Some("legacy-agent"));
     }
 
     #[test]
@@ -4374,6 +4375,19 @@ mod tests {
         ]);
 
         assert!(result.is_ok(), "reindex command should parse");
+    }
+
+    #[test]
+    fn cli_rejects_unknown_reindex_mode() {
+        let result = Cli::try_parse_from([
+            "ov",
+            "reindex",
+            "viking://resources/demo",
+            "--mode",
+            "semantic",
+        ]);
+
+        assert!(result.is_err(), "unknown reindex mode should not parse");
     }
 
     #[test]
