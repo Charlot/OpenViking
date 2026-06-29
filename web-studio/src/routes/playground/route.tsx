@@ -121,6 +121,7 @@ function PlaygroundWorkbench() {
     search.panel ?? 'agent',
   )
   const [actionPanelOpen, setActionPanelOpen] = useState(false)
+  const [showHidden, setShowHidden] = useState(true)
   const isCompactLayout = useIsCompactPlaygroundLayout()
   const [uploadDialogOpen, setUploadDialogOpen] = useState(
     () => search.upload ?? false,
@@ -157,7 +158,7 @@ function PlaygroundWorkbench() {
 
   const listQuery = useVikingFsList(currentUri, {
     output: 'agent',
-    showAllHidden: true,
+    showAllHidden: showHidden,
     nodeLimit: 500,
   })
   const {
@@ -497,6 +498,8 @@ function PlaygroundWorkbench() {
               void invalidateList(currentUri)
               void listQuery.refetch()
             }}
+            showHidden={showHidden}
+            onToggleHidden={() => setShowHidden((v) => !v)}
           />
           <div className="min-h-0 flex-1">
             <ContextTree
@@ -508,6 +511,7 @@ function PlaygroundWorkbench() {
               onExpandedKeysChange={setExpandedKeys}
               onSelectDirectory={handleSelectDirectory}
               onSelectFile={handleSelectFile}
+              showHidden={showHidden}
             />
           </div>
         </aside>

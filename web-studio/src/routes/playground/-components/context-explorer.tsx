@@ -5,6 +5,8 @@ import {
   ChevronRightIcon,
   ClipboardListIcon,
   CommandIcon,
+  EyeIcon,
+  EyeOffIcon,
   FileTextIcon,
   FolderIcon,
   FolderTreeIcon,
@@ -40,6 +42,8 @@ export function ContextExplorerHeader({
   onOpenProcessingTasks,
   onOpenSearch,
   onRefresh,
+  showHidden = true,
+  onToggleHidden,
 }: {
   activeTaskCount: number
   hasActiveTasks: boolean
@@ -50,6 +54,8 @@ export function ContextExplorerHeader({
   onOpenProcessingTasks: () => void
   onOpenSearch: () => void
   onRefresh: () => void
+  showHidden?: boolean
+  onToggleHidden?: () => void
 }) {
   const { t } = useTranslation(['playground', 'resources'])
   const showProcessingTasks = hasTasks || isRefreshingTasks
@@ -114,6 +120,21 @@ export function ContextExplorerHeader({
             className={cn('size-4', isRefreshing && 'animate-spin')}
           />
         </Button>
+        {onToggleHidden ? (
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            title={showHidden ? 'Hide system files' : 'Show system files'}
+            onClick={onToggleHidden}
+          >
+            {showHidden ? (
+              <EyeIcon className="size-4" />
+            ) : (
+              <EyeOffIcon className="size-4" />
+            )}
+          </Button>
+        ) : null}
       </div>
     </div>
   )
@@ -152,6 +173,7 @@ export function ContextTree({
   onSelectDirectory,
   onSelectFile,
   selectedFileUri,
+  showHidden = true,
 }: {
   currentUri: string
   expandedKeys: Set<string>
@@ -159,6 +181,7 @@ export function ContextTree({
   onSelectDirectory: (entry: VikingFsEntry) => void
   onSelectFile: (entry: VikingFsEntry) => void
   selectedFileUri?: string | null
+  showHidden?: boolean
 }) {
   const { t } = useTranslation('playground')
   return (
@@ -180,6 +203,7 @@ export function ContextTree({
             onSelectDirectory={onSelectDirectory}
             onSelectFile={onSelectFile}
             selectedFileUri={selectedFileUri}
+            showHidden={showHidden}
           />
         )
       })}
@@ -219,6 +243,7 @@ export function ContextTreeNode({
   onSelectDirectory,
   onSelectFile,
   selectedFileUri,
+  showHidden = true,
 }: {
   currentUri: string
   entry: VikingFsEntry
@@ -228,6 +253,7 @@ export function ContextTreeNode({
   onSelectDirectory: (entry: VikingFsEntry) => void
   onSelectFile: (entry: VikingFsEntry) => void
   selectedFileUri?: string | null
+  showHidden?: boolean
 }) {
   const { t } = useTranslation('playground')
   const isOpen = expandedKeys.has(entry.uri)
@@ -242,7 +268,7 @@ export function ContextTreeNode({
     entry.uri,
     {
       output: 'agent',
-      showAllHidden: true,
+      showAllHidden: showHidden,
       nodeLimit: 200,
     },
     shouldLoadChildren,
@@ -372,6 +398,7 @@ export function ContextTreeNode({
                 onSelectDirectory={onSelectDirectory}
                 onSelectFile={onSelectFile}
                 selectedFileUri={selectedFileUri}
+                showHidden={showHidden}
               />
             ))
           ) : (
