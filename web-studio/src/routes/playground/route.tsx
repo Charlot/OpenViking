@@ -47,6 +47,7 @@ import {
   PanelTab,
   PlaygroundResizeHandle,
 } from './-components/context-explorer'
+import { AclPanel } from './-components/acl-panel'
 import { TerminalPanel } from './-components/terminal-panel'
 import {
   ROOT_URI,
@@ -571,6 +572,13 @@ function PlaygroundWorkbench() {
               </Button>
             </div>
           </div>
+          {selectedFile && !selectedFile.isDir ? (
+            <AclPanel
+              uri={selectedFile.uri}
+              isDir={false}
+              className="border-b px-4 py-2"
+            />
+          ) : null}
           <div className="min-h-0 flex-1">
             <LazyFilePreview
               file={selectedFile}

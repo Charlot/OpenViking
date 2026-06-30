@@ -280,6 +280,12 @@ def is_accessible(uri: str, ctx: RequestContext) -> bool:
     if target.scope == "upload":
         return False
     if target.scope == "user":
+        from openviking.acl import resolve_acl_access
+
+        acl_result = resolve_acl_access(target, ctx)
+        if acl_result is not None:
+            return acl_result
+
         if target.owner_user_id and target.owner_user_id != ctx.user.user_id:
             return False
         return True

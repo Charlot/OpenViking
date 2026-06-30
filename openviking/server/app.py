@@ -51,6 +51,7 @@ from openviking.server.routers import (
     watches_router,
     webdav_router,
 )
+from openviking.acl.router import router as acl_router
 from openviking.service.core import OpenVikingService
 from openviking.service.task_tracker import get_task_tracker
 from openviking_cli.exceptions import OpenVikingError
@@ -290,6 +291,18 @@ def create_app(
         async with mcp_lifespan():
             if service is not None:
                 await _initialize_runtime_state(app, service, config)
+
+                # Warm ACL cache from AGFS after service is fully initialized.
+                try:
+                    agfs = service.fs._async_agfs
+                    from openviking.acl.store import warm_acl_cache
+
+                    acl_count = await warm_acl_cache(agfs)
+                    if acl_count > 0:
+                        logger.info("ACL cache warmed: %d records loaded", acl_count)
+                except Exception as e:
+                    logger.warning("ACL cache warmup failed: %s", e)
+
             yield
 
         # Cleanup
@@ -534,6 +547,7 @@ def create_app(
     app.include_router(sessions_router)
     app.include_router(snapshot_router)
     app.include_router(stats_router)
+    app.include_router(acl_router)
     app.include_router(pack_router)
     app.include_router(debug_router)
     app.include_router(observer_router)

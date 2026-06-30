@@ -896,6 +896,45 @@ class AsyncHTTPClient:
         response = await self._http.post("/api/v1/search/find", json=payload)
         return self._handle_response_data(response).get("result", {})
 
+    # ── ACL ──
+
+    async def get_acl(self, uri: str) -> Dict[str, Any]:
+        """Get effective ACL for a URI (includes inherited)."""
+        response = await self._http.get(
+            "/api/v1/acl/get", params={"uri": VikingURI.normalize(uri)}
+        )
+        return self._handle_response_data(response).get("result", {})
+
+    async def set_acl(
+        self,
+        uri: str,
+        shared: bool = False,
+        search_disabled: bool = False,
+    ) -> Dict[str, Any]:
+        """Set ACL for a file or directory.
+
+        Args:
+            uri: Viking URI to set ACL on.
+            shared: If True, the file is readable by all users.
+            search_disabled: If True, the file is excluded from search results.
+        """
+        payload = {
+            "uri": VikingURI.normalize(uri),
+            "shared": shared,
+            "search_disabled": search_disabled,
+        }
+        payload = self._compact_request_body(payload)
+        response = await self._http.put("/api/v1/acl/set", json=payload)
+        return self._handle_response_data(response).get("result", {})
+
+    async def remove_acl(self, uri: str) -> Dict[str, Any]:
+        """Remove ACL record (revert to inherited or default)."""
+        response = await self._http.delete(
+            "/api/v1/acl/remove",
+            params={"uri": VikingURI.normalize(uri)},
+        )
+        return self._handle_response_data(response).get("result", {})
+
     async def search(
         self,
         query: str,
@@ -1783,6 +1822,29 @@ class SyncHTTPClient:
                 telemetry=telemetry,
             )
         )
+
+    # ── ACL (sync) ──
+
+    def get_acl(self, uri: str) -> Dict[str, Any]:
+        """Get effective ACL for a URI (includes inherited)."""
+        return run_async(self._async_client.get_acl(uri))
+
+    def set_acl(
+        self,
+        uri: str,
+        shared: bool = False,
+        search_disabled: bool = False,
+    ) -> Dict[str, Any]:
+        """Set ACL for a file or directory."""
+        return run_async(
+            self._async_client.set_acl(
+                uri=uri, shared=shared, search_disabled=search_disabled
+            )
+        )
+
+    def remove_acl(self, uri: str) -> Dict[str, Any]:
+        """Remove ACL record (revert to inherited or default)."""
+        return run_async(self._async_client.remove_acl(uri))
 
     def grep(
         self,
