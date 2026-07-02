@@ -88,7 +88,7 @@ curl -X POST "http://host:11933/api/v1/content/write" \
 
 ---
 
-## 2. 共享搜索需求与设计
+## 2. 共享搜索需求与设计 `[新设计]`
 
 ### 2.1 需求场景
 
@@ -583,3 +583,104 @@ def resolve_viking_links(markdown: str, server: str) -> str:
   }
 }
 ```
+
+---
+
+## 9. 路径映射与多租户隔离
+
+### 9.1 URI → 存储路径 `[现有]`
+
+OpenViking 使用纯字符串替换将虚拟 URI 映射到物理存储路径：
+
+```
+viking://{remainder}  →  /local/{account_id}/{remainder}
+```
+
+核心代码（`viking_fs.py:2367`）：
+
+```python
+def _uri_to_path(self, uri, ctx):
+    account_id = ctx.account_id              # 来自 RequestContext（认证解析结果）
+    parts = parse(uri)                       # 去除 viking:// 前缀，按 / 拆段
+    return f"/local/{account_id}/{'/'.join(parts)}"
+```
+
+### 9.2 完整请求链路 `[现有]`
+
+```
+HTTP Request                               AGFS / MinIO Path
+────────────                               ─────────────────
+
+POST /api/v1/search/find
+  X-API-Key: ak-xxx
+  → ctx.account_id = "default"
+  → 搜索范围: viking://resources/ +
+              viking://user/{ctx.user_id}/
+  → 返回 URI: viking://user/alice/files/开票.md
+
+GET /api/v1/content/read
+  ?uri=viking://user/alice/files/开票.md
+  → _uri_to_path()
+  → /local/default/user/alice/files/开票.md
+  → AGFS → S3/MinIO object key: user/alice/files/开票.md
+```
+
+### 9.3 路径结构 `[现有]`
+
+```
+viking://user/alice/files/财务/开票.md
+          │    │     │     │
+          │    │     │     └── 用户自定义（可嵌套多级目录）
+          │    │     └── 固定前缀: files/ 或 drafts/
+          │    └── user_id（来自认证）
+          └── scope: user / resources / skills
+
+         ↓ _uri_to_path + _ctx_or_default(account_id="default")
+
+/local/default/user/alice/files/财务/开票.md
+       │       │
+       │       └── account_id（隔离单元）
+       └── AGFS 根前缀（本地 /local/，S3 下为 bucket 内的路径）
+```
+
+### 9.4 account_id 即隔离单元 `[现有]`
+
+| 配置 | account_id 来源 | 隔离效果 |
+|------|------|------|
+| `api_key` 模式 | API Key → APIKeyManager 解析 | 每个 account 数据隔离 |
+| `trusted` 模式 | `X-OpenViking-Account` header | 网关层控制 |
+| `dev` 模式 | 固定 `"default"` | 无隔离 |
+
+### 9.5 Infra 模式（上层管用户） `[新设计]`
+
+OpenViking 已有的 `trusted` auth 模式支持将用户管理完全外移。
+
+**两层分离：**
+
+| 层 | 机制 | 说明 |
+|------|------|------|
+| **认证** | ROOT Key | 一个 Key，所有请求共用。验证"你是可信网关" |
+| **分区** | `X-OpenViking-Account` + `X-OpenViking-User` | 数据参数，OpenViking 不验证存在性 |
+
+```
+网关:
+  用户 alice 登录 → 网关查库 → 注入 header:
+    X-API-Key: ak-xxx              ← 服务间认证（所有用户同一个 Key）
+    X-OpenViking-Account: company-42 ← 租户分区
+    X-OpenViking-User: alice         ← 用户分区
+
+OpenViking:
+  验证 ROOT Key → 通过
+  读取 account + user → 不查库，直接用于路径和搜索隔离
+  文件写入: /local/company-42/user/alice/files/
+  搜索: owner=alice OR is_shared=1
+```
+
+**用户体系不在 OpenViking——account 和 user 只是分区标记。** 网关保证 alice 的请求只能带 `user=alice`。
+
+| 配置项 | 值 | 说明 |
+|------|------|------|
+| `server.auth_mode` | `"trusted"` | 信任 header 传入的身份 |
+| `server.root_api_key` | `"ak-xxx"` | 所有请求共用的服务间凭证 |
+
+**零代码改动**，配置即可。
