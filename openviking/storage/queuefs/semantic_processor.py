@@ -1426,7 +1426,7 @@ class SemanticProcessor(DequeueHandlerBase):
             with bind_telemetry_stage("resource_summarize"):
                 logger.info(
                     "[VLM:overview] dir=%s files=%d children=%d",
-                    dir_uri, len(file_summaries), len(children_abstracts),
+                    dir_uri, len(file_summaries_str.split("\n")) if file_summaries_str else 0, len(children_abstracts_str.split("\n")) if children_abstracts_str else 0,
                 )
                 overview = await vlm.get_completion_async(prompt)
 
