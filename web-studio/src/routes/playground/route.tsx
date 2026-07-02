@@ -572,10 +572,10 @@ function PlaygroundWorkbench() {
               </Button>
             </div>
           </div>
-          {selectedFile && !selectedFile.isDir ? (
+          {selectedFile ? (
             <AclPanel
               uri={selectedFile.uri}
-              isDir={false}
+              isDir={selectedFile.isDir}
               className="border-b px-4 py-2"
             />
           ) : null}
