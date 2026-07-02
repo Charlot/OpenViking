@@ -36,6 +36,62 @@ from openviking.server.models import Response
 router = APIRouter(prefix="/api/v1/acl", tags=["acl"])
 
 
+async def _update_vector_acl(
+    service,
+    uri: str,
+    shared: bool,
+    search_disabled: bool,
+) -> None:
+    """Update is_shared/is_search_disabled fields in vector records.
+
+    For a file: updates that single record.
+    For a directory: recursively updates all records under the directory.
+    """
+    try:
+        vector_store = getattr(service.fs, '_get_vector_store', None)
+        if vector_store is None:
+            return
+        store = vector_store()
+        if store is None:
+            return
+    except Exception:
+        return
+
+    is_shared_val = 1 if shared else 0
+    is_search_disabled_val = 1 if search_disabled else 0
+
+    # Build filter to find records under this URI.
+    from openviking.core.namespace import canonicalize_uri
+    from openviking.storage.expr import PathScope, Or
+
+    canonical = canonicalize_uri(uri, None)
+
+    try:
+        # Find all records under the target URI prefix (depth=-1 = recursive).
+        records = await store.query(
+            filter=PathScope("uri", canonical, depth=-1),
+            limit=1000,
+        )
+    except Exception:
+        return
+
+    for record in records:
+        record_id = record.get("id")
+        if not record_id:
+            continue
+        try:
+            await store.upsert(
+                {
+                    "id": str(record_id),
+                    "is_shared": is_shared_val,
+                    "is_search_disabled": is_search_disabled_val,
+                },
+                partial_update=True,
+            )
+        except Exception:
+            continue
+
+
 class SetAclRequest(BaseModel):
     uri: str
     shared: bool = False
@@ -105,6 +161,10 @@ async def acl_set(
     cache_acl(uri, acl)
     # Invalidate children cache (inheritance may have changed).
     invalidate_acl_tree(uri)
+
+    # Update vector index records for this URI and its descendants
+    # so the search filter picks up the new ACL state.
+    await _update_vector_acl(service, uri, effective_shared, effective_search_disabled)
 
     return Response(status="ok", result=acl).model_dump(exclude_none=True)
 

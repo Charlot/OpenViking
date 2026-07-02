@@ -109,6 +109,11 @@ class CollectionSchemas:
                 {"FieldName": "content", "FieldType": "text"},
                 {"FieldName": "account_id", "FieldType": "string"},
                 {"FieldName": "owner_user_id", "FieldType": "string"},
+                # ACL: shared search support
+                # - is_shared: 1 = readable by all users in the same account
+                # - is_search_disabled: 1 = excluded from search results
+                {"FieldName": "is_shared", "FieldType": "int64"},
+                {"FieldName": "is_search_disabled", "FieldType": "int64"},
             ]
         )
         scalar_index = [
@@ -127,6 +132,8 @@ class CollectionSchemas:
                 "search_tags",
                 "account_id",
                 "owner_user_id",
+                "is_shared",
+                "is_search_disabled",
             ]
         )
         return {

@@ -28,6 +28,8 @@ RETRIEVAL_OUTPUT_FIELDS = [
     "active_count",
     "updated_at",
     "search_tags",
+    "is_shared",
+    "is_search_disabled",
 ]
 
 LOOKUP_OUTPUT_FIELDS = [
@@ -258,6 +260,9 @@ class _SingleAccountBackend:
 
     async def upsert(self, data: Dict[str, Any], partial_update: bool = False) -> str:
         payload = dict(data)
+        # ACL defaults: records without these fields default to private.
+        payload.setdefault("is_shared", 0)
+        payload.setdefault("is_search_disabled", 0)
         logger.debug(
             f"[_SingleAccountBackend.upsert] Input data.account_id={payload.get('account_id')}, bound_account_id={self._bound_account_id}"
         )
@@ -1359,9 +1364,10 @@ class VikingVectorIndexBackend:
 
         account_filter = Eq("account_id", ctx.account_id)
         path_filter = Or([PathScope("uri", root, depth=-1) for root in visible_roots(ctx)])
-        if context_type:
-            return And([account_filter, path_filter])
-        return And([account_filter, path_filter])
+        # ACL shared search: items in the user's visible roots OR items
+        # marked is_shared=1 by other users in the same account.
+        scope_filter = Or([path_filter, Eq("is_shared", 1)])
+        return And([account_filter, scope_filter, Eq("is_search_disabled", 0)])
 
     @staticmethod
     def _merge_filters(*filters: Optional[FilterExpr]) -> Optional[FilterExpr]:
