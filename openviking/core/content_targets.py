@@ -20,6 +20,8 @@ class ContentTargetSpec:
     to: str = ""
     parent: str = ""
     create_parent: bool = False
+    scope: str = "resources"
+    overwrite: bool = False
 
     @classmethod
     def from_fields(
@@ -30,6 +32,8 @@ class ContentTargetSpec:
         to: Optional[str] = None,
         parent: Optional[str] = None,
         create_parent: bool = False,
+        scope: str = "resources",
+        overwrite: bool = False,
     ) -> "ContentTargetSpec":
         resolved_to = resolve_path_variables(to) if to else None
         resolved_parent = resolve_path_variables(parent) if parent else None
@@ -49,4 +53,6 @@ class ContentTargetSpec:
                 field_name="parent",
             ),
             create_parent=create_parent,
+            scope=scope,
+            overwrite=overwrite,
         )

@@ -63,10 +63,10 @@
 #### R1: 多层级文件夹
 
 ```
-用户操作: 创建 viking://user/files/财务/2024/Q4/
+用户操作: 创建 viking://user/resources/财务/2024/Q4/
 
 OpenViking:
-  mkdir("viking://user/files/财务/2024/Q4/")
+  mkdir("viking://user/resources/财务/2024/Q4/")
   → _ensure_parent_dirs() 自动创建 财务/ → 2024/ → Q4/
   → 无需预创建父目录
 ```
@@ -76,7 +76,7 @@ OpenViking:
 ```
 OpenViking:
   PUT /api/v1/acl/set
-  {"uri": "viking://user/files/财务知识/", "shared": true}
+  {"uri": "viking://user/resources/财务知识/", "shared": true}
 
   → 递归更新向量索引: 所有子文件 is_shared=1
   → 搜索 filter 包含 is_shared=1 → 立即可被搜索到
@@ -87,7 +87,7 @@ OpenViking:
 ```
 OpenViking:
   PUT /api/v1/acl/set
-  {"uri": "viking://user/files/草稿/", "search_disabled": true}
+  {"uri": "viking://user/resources/草稿/", "search_disabled": true}
 
   → 递归更新子文件: is_search_disabled=1
   → 搜索 filter 排除 is_search_disabled=1 → 不出现在搜索结果中
@@ -101,8 +101,8 @@ OpenViking:
 
 OpenViking:
   POST /api/v1/fs/mv
-  {"from": "viking://user/files/财务/报销.md",
-   "to": "viking://user/files/归档/报销.md"}
+  {"from": "viking://user/resources/财务/报销.md",
+   "to": "viking://user/resources/归档/报销.md"}
 
   → AGFS mv → 向量索引中 URI 更新 → ACL 继承目标目录
 ```
@@ -113,7 +113,7 @@ OpenViking:
 用户操作: 删除 "废弃文档.md"
 
 OpenViking:
-  DELETE /api/v1/fs?uri=viking://user/files/废弃文档.md
+  DELETE /api/v1/fs?uri=viking://user/resources/废弃文档.md
 
   → AGFS rm → 向量索引中记录删除
   → 目录: 递归删除子文件
@@ -124,7 +124,7 @@ OpenViking:
 ```
 OpenViking:
   PUT /api/v1/acl/set
-  {"uri": "viking://user/files/技术分享/", "shared": true}
+  {"uri": "viking://user/resources/技术分享/", "shared": true}
   → 和 R2 相同机制
 ```
 
@@ -170,8 +170,8 @@ viking://user/{user_id}/files/  →  /local/{account_id}/user/{user_id}/files/
 
 | 写法 | 展开后 | 说明 |
 |------|------|------|
-| `viking://user/files/` | `viking://user/{当前用户}/files/` | 简写，自动注入 |
-| `viking://user/files/开票.md` | `viking://user/{当前用户}/files/开票.md` | 推荐日常使用 |
+| `viking://user/resources/` | `viking://user/{当前用户}/files/` | 简写，自动注入 |
+| `viking://user/resources/开票.md` | `viking://user/{当前用户}/files/开票.md` | 推荐日常使用 |
 | `viking://user/alice/files/开票.md` | 原样 | 跨分区访问（需 ACL shared） |
 
 ### 3.3 SDK 初始化
@@ -192,56 +192,46 @@ client.initialize()
 # 只将文件写入 /local/company-42/user/alice/files/
 ```
 
-### 3.4 添加资源（异步 → 获取 URI）
+### 3.4 添加用户资源
 
-`add_resource` 是异步的——先返回 `task_id`，处理完才能拿到最终 URI。
+`add_resource` 目前只能写到 `viking://resources/`（代码中 `scope` 硬编码）。需要新增 `add_user_resource` 接口直接写入 `viking://user/{user_id}/resources/`。
 
-**推荐方式：同步等待**
+**新增接口：**
+
+```
+POST /api/v1/user/resources
+```
+
+和 `add_resource` 参数一致，但 `to` 支持 `viking://user/resources/` 简写，文件直接到用户空间。
+
+**SDK 用法：**
 
 ```python
-result = client.add_resource(
+result = client.add_user_resource(
     path="报销流程.pdf",
-    to="viking://user/files/财务/",     # 简写，自动展开
-    wait=True,                           # 阻塞直到处理完成
+    to="viking://user/resources/财务/",
+    wait=True,
 )
 uri = result["root_uri"]
-# → "viking://user/files/财务/报销流程.md"
+# → "viking://user/alice/resources/财务/报销流程.md"
 ```
+
+**实现要点：**
+
+1. 新增路由 `POST /api/v1/user/resources`
+2. 调 `resource_service.add_resource()`，传入 `scope="user"`
+3. `tree_builder._get_base_uri("user")` 返回 `viking://user/{user_id}/resources/`
+4. 其余处理流程（Parser → Embedding → 向量索引）和 `add_resource` 完全一致
 
 **轮询方式：**
 
 ```python
-task = client.add_resource(
+task = client.add_user_resource(
     path="报销流程.pdf",
-    to="viking://user/files/财务/",
+    to="viking://user/resources/财务/",
 )
-task_id = task["task_id"]
-
-# 轮询直到完成
-import time
-while True:
-    tasks = client.list_tasks()  # GET /api/v1/tasks
-    for t in tasks:
-        if t["task_id"] == task_id:
-            if t["status"] == "completed":
-                uri = t["resource_id"]  # → viking://user/files/财务/报销流程.md
-            elif t["status"] == "failed":
-                raise Exception(t["error"])
-            break
-    time.sleep(1)
-```
-
-**外部系统拿到 URI 后保存它——后续读、写、搜、删都用这个 URI。** 字段在 task 返回中：
-
-```json
-{
-  "task_id": "eee874f9-...",
-  "status": "completed",
-  "resource_id": "viking://user/files/财务/报销流程.md",
-  "result": {
-    "root_uri": "viking://user/files/财务/报销流程.md"
-  }
-}
+# 轮询 GET /api/v1/tasks 直到 completed
+uri = task["resource_id"]  # → viking://user/alice/resources/财务/报销流程.md
 ```
 
 ### 3.5 替换上传（覆盖同名文件）
@@ -263,13 +253,13 @@ client.write(uri, new_content)  # POST /api/v1/content/write
 
 ```python
 # 共享文件夹
-client.set_acl("viking://user/files/财务知识/", shared=True)
+client.set_acl("viking://user/resources/财务知识/", shared=True)
 
 # 取消共享
-client.set_acl("viking://user/files/财务知识/", shared=False)
+client.set_acl("viking://user/resources/财务知识/", shared=False)
 
 # 排除搜索（不加入搜索索引）
-client.set_acl("viking://user/files/草稿/", search_disabled=True)
+client.set_acl("viking://user/resources/草稿/", search_disabled=True)
 ```
 
 ### 3.7 搜索
@@ -281,7 +271,7 @@ client.set_acl("viking://user/files/草稿/", search_disabled=True)
 client.find("开票")
 
 # 限定目录搜索
-client.find("开票", target_uri="viking://user/files/财务/")
+client.find("开票", target_uri="viking://user/resources/财务/")
 ```
 
 搜索自动过滤：`is_search_disabled=0` — 被标记 `search_disabled=true` 的文件不出现在结果中。
@@ -291,10 +281,11 @@ client.find("开票", target_uri="viking://user/files/财务/")
 **上传 + 共享：**
 
 ```
-1. 用户上传 → add_resource(wait=True) → URI: viking://user/files/财务/开票.md
-2. 外部系统保存 URI 到数据库
-3. 用户点"共享" → set_acl(uri, shared=true) → 文件可被搜索到
-4. 用户点"排除搜索" → set_acl(uri, search_disabled=true) → 文件从搜索中隐藏
+1. add_resource(wait=True) → URI: viking://resources/财务/开票.md
+2. mv → viking://user/resources/财务/开票.md（移到用户空间）
+3. 外部系统保存最终 URI 到数据库
+4. 用户点"共享" → set_acl(uri, shared=true) → 文件可被搜索到
+5. 用户点"排除搜索" → set_acl(uri, search_disabled=true) → 文件从搜索中隐藏
 ```
 
 **Agent 搜索：**

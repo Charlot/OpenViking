@@ -1359,7 +1359,7 @@ class VikingVectorIndexBackend:
     def _tenant_filter(
         ctx: RequestContext, context_type: Optional[str] = None
     ) -> Optional[FilterExpr]:
-        if ctx.role == Role.ROOT:
+        if ctx.role in (Role.ROOT, Role.ADMIN):
             return None
 
         account_filter = Eq("account_id", ctx.account_id)

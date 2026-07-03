@@ -616,10 +616,10 @@ POST /api/v1/search/find
   → ctx.account_id = "default"
   → 搜索范围: viking://resources/ +
               viking://user/{ctx.user_id}/
-  → 返回 URI: viking://user/alice/files/开票.md
+  → 返回 URI: viking://user/alice/resources/开票.md
 
 GET /api/v1/content/read
-  ?uri=viking://user/alice/files/开票.md
+  ?uri=viking://user/alice/resources/开票.md
   → _uri_to_path()
   → /local/default/user/alice/files/开票.md
   → AGFS → S3/MinIO object key: user/alice/files/开票.md
@@ -628,7 +628,7 @@ GET /api/v1/content/read
 ### 9.3 路径结构 `[现有]`
 
 ```
-viking://user/alice/files/财务/开票.md
+viking://user/alice/resources/财务/开票.md
           │    │     │     │
           │    │     │     └── 用户自定义（可嵌套多级目录）
           │    │     └── 固定前缀: files/ 或 drafts/

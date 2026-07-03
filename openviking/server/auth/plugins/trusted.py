@@ -136,7 +136,12 @@ class TrustedAuthPlugin(AuthPlugin):
                 )
 
         api_key_manager = getattr(request.app.state, "api_key_manager", None)
-        trusted_role = Role.USER
+        # ROOT key holders authenticated by root_api_key get ADMIN role
+        # so they can browse all users' data when switching account/user.
+        if configured_root_api_key:
+            trusted_role = Role.ADMIN
+        else:
+            trusted_role = Role.USER
         if api_key_manager and effective_account_id and effective_user_id:
             looked_up_role = api_key_manager.get_user_role(effective_account_id, effective_user_id)
             if looked_up_role is not None:

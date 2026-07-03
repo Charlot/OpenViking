@@ -405,3 +405,103 @@ openviking/
 ├── storage/vectordb/engine/*.abi3.so # C++ BruteForce 向量引擎 (pybind11)
 └── web_studio/dist/                  # Vite React SPA
 ```
+
+---
+
+## 9. 精简分析：哪些可以砍 `[新设计]`
+
+### 9.1 组件必要性评估
+
+| 组件 | 语言 | 是否必须 | 说明 |
+|------|------|------|------|
+| **RAGFS** | Rust | ✅ 必须 | 文件操作的唯一入口。VikingFS 所有 read/write/ls/mkdir/stat 都走它。约 3000 行 VikingFS 全部依赖，无法替换 |
+| **VectorDB (C++ BruteForce)** | C++ (pybind11) | ⚪ 可替代 | 换 Qdrant 或外部向量服务后，C++ 引擎完全不需要。编译重、调试难 |
+| **认证鉴权** | Python | ⚪ 可替代 | `api_key` 模式的多租户体系。`trusted` 模式 + 网关层替代 |
+| **多租户/用户体系** | Python | ⚪ 可替代 | `identity.py` + `namespace.py` + `api_keys/` 共 1700+ 行。Infra 模式下不需要 |
+| **OAuth 2.1** | Python | ⚪ 可替代 | MCP 客户端授权。Infra 模式不需要 |
+| **Web Studio** | TypeScript | ⚪ 可替代 | 上层产品自建前端 |
+| **CLI (ov)** | Rust | ⚪ 可替代 | SDK 已覆盖 |
+
+### 9.2 不可替代的核心
+
+```
+┌──────────────────────────────────────┐
+│  搜索层                               │
+│  ├── HierarchicalRetriever  分层检索  │
+│  ├── Embedding              向量化    │
+│  ├── Rerank                 精排      │
+│  └── VLM                    L0/L1 摘要 │
+├──────────────────────────────────────┤
+│  文件层                               │
+│  ├── RAGFS (Rust)           文件存储   │
+│  └── QueueFS                任务队列   │
+├──────────────────────────────────────┤
+│  解析层                               │
+│  ├── PDF / Code / Image / Office      │
+│  └── → Markdown 分块                  │
+├──────────────────────────────────────┤
+│  接口层                               │
+│  ├── REST API                         │
+│  └── MCP Server (15 tools)            │
+└──────────────────────────────────────┘
+```
+
+### 9.3 组件可替换性
+
+```
+不可替代:
+  RAGFS (Rust)                    ← 必需，Foundation
+
+可替换后端:
+  VectorDB C++ → Qdrant           ← 配置切换，不改代码
+  VLM/Embedding/Rerank → 外部API  ← 已有 OpenAI 兼容支持
+
+可剥离:
+  认证鉴权 → trusted 模式          ← 一行配置，网关替代
+  多租户   → 网关管               ← 不改 OpenViking
+  Web UI   → 上层产品自建          ← 前端完全独立
+  CLI (ov) → SDK 覆盖             ← 功能等价
+```
+
+### 9.4 精简后的最小形态 `[新设计]`
+
+```
+┌─────────────────────────────────────┐
+│  上层产品 (Gateway + 前端)            │
+│  用户管理 / Agent 配置 / ACL UI       │
+└──────────────┬──────────────────────┘
+               │ REST / MCP (trusted 模式, ROOT Key)
+               ▼
+┌──────────────────────────────────────┐
+│  OpenViking 精简版                    │
+│                                      │
+│  搜索: HierarchicalRetriever          │
+│        + Embedding + Rerank           │
+│                                      │
+│  存储: RAGFS (Rust) → MinIO           │
+│        QueueFS (SQLite)               │
+│                                      │
+│  索引: Qdrant (替换 C++ 引擎)          │
+│                                      │
+│  解析: PDF/Code/Image/Office → MD     │
+│                                      │
+│  API:   REST + MCP (15 tools)         │
+│  ACL:   shared / search_disabled      │
+│                                      │
+│  ❌ 去掉: C++ 编译                     │
+│  ❌ 去掉: 内置用户体系                 │
+│  ❌ 去掉: API Key 管理                 │
+│  ❌ 去掉: 多租户权限                   │
+└──────────────────────────────────────┘
+```
+
+### 9.5 技术代价
+
+| 砍掉的组件 | 编译加速 | 代码减少 | 运维简化 |
+|------|------|------|------|
+| C++ BruteForce → Qdrant | 无需 CMake/pybind11 | ~2000 行 C++ + adapter | Qdrant 独立部署 |
+| API Key → trusted | 无影响 | ~1200 行 | 零运维 |
+| 用户体系 | 无影响 | ~1700 行 | 网关层统一管理 |
+| Web Studio | 无需 npm | ~10000 行 TS | 零运维 |
+
+**结论：RAGFS 是唯一不能动的核心。其余均可替换或剥离。**

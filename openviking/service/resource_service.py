@@ -503,17 +503,28 @@ class ResourceService:
 
         doc_name = self._target_doc_name(path, source_name, source_info)
         source_path = source_info.source_path or source_name or path
+        scope = getattr(target, "scope", None) or "resources"
+        if scope == "user":
+            from openviking.core.namespace import user_space_fragment
+
+            user_resources_root = f"viking://user/{user_space_fragment(ctx)}/resources"
+            effective_parent_uri = target.parent or user_resources_root
+            effective_to_uri = target.to
+        else:
+            effective_parent_uri = target.parent
+            effective_to_uri = target.to
+
         root_uri, candidate_uri = await self._resource_processor.tree_builder.resolve_target_uri(
             ctx=ctx,
             doc_name=doc_name,
-            scope="resources",
-            to_uri=target.to,
-            parent_uri=target.parent,
+            scope=scope,
+            to_uri=effective_to_uri,
+            parent_uri=effective_parent_uri,
             source_path=source_path,
             source_format=source_info.source_format,
             create_parent=target.create_parent,
         )
-        if candidate_uri:
+        if candidate_uri and not target.overwrite:
             return await self._resource_processor.reserve_unique_candidate(
                 candidate_uri=candidate_uri,
                 ctx=ctx,
@@ -597,6 +608,8 @@ class ResourceService:
         watch_interval: float = 0,
         skip_watch_management: bool = False,
         allow_local_path_resolution: bool = True,
+        scope: str = "resources",
+        overwrite: bool = False,
         enforce_public_remote_targets: bool = False,
         resource_lock: Optional[LockLease] = None,
         stage_callback: Optional[Callable[[str], Any]] = None,
@@ -694,6 +707,8 @@ class ResourceService:
                 to=to,
                 parent=parent,
                 create_parent=bool(kwargs.get("create_parent", False)),
+                scope=scope,
+                overwrite=overwrite,
             )
             if enforce_public_remote_targets and is_remote_resource_source(path):
                 path = require_remote_resource_source(path)
@@ -1240,6 +1255,43 @@ class ResourceService:
             logger.info(
                 f"[ResourceService] Deactivated watch task {existing_task.task_id} for {to_uri}"
             )
+
+    async def add_user_resource(
+        self,
+        path: str,
+        ctx: RequestContext,
+        to: Optional[str] = None,
+        parent: Optional[str] = None,
+        reason: str = "",
+        instruction: str = "",
+        wait: bool = False,
+        timeout: Optional[float] = None,
+        watch_interval: float = 0,
+        overwrite: bool = False,
+        args: Optional[Dict[str, Any]] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Add resource directly to user space (``viking://user/{user_id}/resources/``).
+
+        Same as ``add_resource`` but with user scope instead of resources scope.
+        Files are placed under the calling user's directory.
+        """
+        return await self.add_resource(
+            path=path,
+            ctx=ctx,
+            to=to,
+            parent=parent,
+            reason=reason,
+            instruction=instruction,
+            wait=wait,
+            timeout=timeout,
+            build_index=True,
+            watch_interval=watch_interval,
+            scope="user",
+            overwrite=overwrite,
+            args=args,
+            **kwargs,
+        )
 
     async def add_skill(
         self,

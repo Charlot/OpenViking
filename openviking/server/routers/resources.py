@@ -85,6 +85,7 @@ class AddResourceRequest(BaseModel):
     args: Dict[str, Any] = Field(default_factory=dict)
     telemetry: TelemetryRequest = False
     watch_interval: float = 0
+    overwrite: bool = False
 
     @model_validator(mode="after")
     def check_path_or_temp_file_id(self):
@@ -243,6 +244,90 @@ async def add_resource(
 
     execution = await run_operation(
         operation="resources.add_resource",
+        telemetry=request.telemetry,
+        fn=_add,
+    )
+    return response_from_result(execution.result, telemetry=execution.telemetry)
+
+
+@router.post("/user/resources")
+async def add_user_resource(
+    http_request: Request,
+    request: AddResourceRequest,
+    _ctx: RequestContext = Depends(get_request_context),
+):
+    """Add resource to the current user's space (``viking://user/{user_id}/resources/``).
+
+    Same parameters as ``POST /api/v1/resources``, but files go directly
+    to the calling user's directory instead of the account-shared pool.
+    """
+    service = get_service()
+
+    path = request.path
+    allow_local_path_resolution = False
+    original_filename = None
+    resolved = None
+    if request.temp_file_id:
+        store = TempUploadStore.build(http_request.app.state.config)
+        resolved = await store.resolve_for_consume(request.temp_file_id, _ctx)
+        path = resolved.local_path
+        original_filename = resolved.original_filename
+        allow_local_path_resolution = True
+    elif path is not None:
+        path = require_remote_resource_source(path)
+    if path is None:
+        raise InvalidArgumentError("Either 'path' or 'temp_file_id' must be provided.")
+
+    source_name = request.source_name
+    if source_name is None and original_filename is not None:
+        source_name = original_filename
+
+    kwargs = {
+        "strict": request.strict,
+        "source_name": source_name,
+        "ignore_dirs": request.ignore_dirs,
+        "include": request.include,
+        "exclude": request.exclude,
+        "directly_upload_media": request.directly_upload_media,
+        "create_parent": request.create_parent,
+    }
+    if request.temp_file_id:
+        kwargs["temp_file_id"] = request.temp_file_id
+    if request.preserve_structure is not None:
+        kwargs["preserve_structure"] = request.preserve_structure
+
+    async def _add() -> dict[str, Any]:
+        try:
+            result = await service.resources.add_user_resource(
+                path=path,
+                ctx=_ctx,
+                to=request.to,
+                parent=request.parent,
+                reason=request.reason,
+                instruction=request.instruction,
+                wait=request.wait,
+                timeout=request.timeout,
+                watch_interval=request.watch_interval,
+                overwrite=request.overwrite,
+                args=request.args,
+                **kwargs,
+            )
+        except Exception:
+            if resolved:
+                store = TempUploadStore.build(http_request.app.state.config)
+                await store.mark_failed(resolved, _ctx)
+            raise
+        else:
+            if resolved:
+                store = TempUploadStore.build(http_request.app.state.config)
+                await store.mark_consumed(resolved, _ctx)
+            return result
+        finally:
+            if resolved:
+                await resolved.cleanup()
+
+    execution = await run_operation(
+        operation="resources.add_user_resource",
         telemetry=request.telemetry,
         fn=_add,
     )

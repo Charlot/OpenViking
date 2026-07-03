@@ -27,6 +27,9 @@ const en = {
       sessions: {
         title: 'Sessions',
       },
+      fileViewer: {
+        title: 'File Viewer',
+      },
       playground: {
         title: 'Playground',
       },

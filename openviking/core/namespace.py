@@ -267,7 +267,8 @@ def canonicalize_uri(uri: str, ctx: Optional[RequestContext] = None) -> str:
 
 
 def is_accessible(uri: str, ctx: RequestContext) -> bool:
-    if getattr(ctx.role, "value", ctx.role) == "root":
+    role = getattr(ctx.role, "value", ctx.role)
+    if role in ("root", "admin"):
         return True
 
     try:

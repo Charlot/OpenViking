@@ -49,12 +49,21 @@
 | 1.4.4 | `SyncHTTPClient` 同步封装 | 🟢 完成 | P1 | |
 | 1.4.5 | SDK `acl_list()` 方法 | 🔴 未开始 | P2 | 对应 `GET /api/v1/acl/list` |
 
-### 1.5 MCP Tools
+### 1.5 add_user_resource 接口 `[新设计]`
 
 | # | 任务 | 状态 | 优先级 | 说明 |
 |------|------|------|------|------|
-| 1.5.1 | MCP tool: `set_acl` | 🔴 未开始 | P2 | |
-| 1.5.2 | MCP tool: `get_acl` | 🔴 未开始 | P2 | |
+| 1.5.1 | 新增 `POST /api/v1/user/resources` 路由 | 🔴 未开始 | P0 | 调 `resource_service.add_resource(scope="user")` |
+| 1.5.2 | `tree_builder._get_base_uri("user")` 改为返回用户 resources 根路径 | 🔴 未开始 | P0 | `viking://user/{user_id}/resources/` |
+| 1.5.3 | SDK `add_user_resource()` 方法 | 🔴 未开始 | P0 | async + sync 封装 |
+| 1.5.4 | 验证：上传文件到用户空间，确认可搜索 | 🔴 未开始 | P0 | |
+
+### 1.6 MCP Tools
+
+| # | 任务 | 状态 | 优先级 | 说明 |
+|------|------|------|------|------|
+| 1.6.1 | MCP tool: `set_acl` | 🔴 未开始 | P2 | |
+| 1.6.2 | MCP tool: `get_acl` | 🔴 未开始 | P2 | |
 
 ---
 
@@ -135,7 +144,7 @@
 
 | 模块 | 🟢 完成 | 🔴 未开始 | ⚪ 不执行 |
 |------|------|------|------|
-| OpenViking 核心 | 16 | 2 (均为 P2) | 0 |
+| OpenViking 核心 | 16 | 6 (4 P0 + 2 P2) | 0 |
 | 前端 | 6 | 2 (P1+P2) | 0 |
 | 上层产品 | 0 | 15 (均为 P0) | 0 |
 | 不执行 | — | — | 4 |
@@ -144,7 +153,7 @@
 
 | 优先级 | 完成 | 未开始 | 说明 |
 |------|------|------|------|
-| P0 | 0 | 16 | **全部在上层产品** — 网关 + 文件管理 + Agent 集成 |
+| P0 | 0 | 19 | add_user_resource + 上层产品 |
 | P1 | 20 | 1 | OpenViking 核心 + 前端主体 + 覆盖确认 |
 | P2 | 2 | 3 | SDK acl_list + MCP + ACL 树图标 |
 | — | — | 4 | 不执行 |

@@ -27,6 +27,9 @@ const zhCN = {
       sessions: {
         title: '会话',
       },
+      fileViewer: {
+        title: '文件查看',
+      },
       playground: {
         title: '实验场',
       },

@@ -466,6 +466,74 @@ class AsyncHTTPClient:
         response = await self._http.post("/api/v1/resources", json=request_data)
         return self._handle_response_data(response).get("result", {})
 
+    async def add_user_resource(
+        self,
+        path: str,
+        to: Optional[str] = None,
+        parent: Optional[str] = None,
+        reason: str = "",
+        instruction: str = "",
+        wait: bool = False,
+        timeout: Optional[float] = None,
+        watch_interval: float = 0,
+        overwrite: bool = False,
+        telemetry: Any = False,
+        args: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Add resource to the current user's space.
+
+        Same as ``add_resource`` but files go directly to
+        ``viking://user/{user_id}/resources/``.
+
+        Args:
+            overwrite: If True, overwrite existing file at target URI
+                instead of auto-incrementing suffix (``_1``, ``_2``).
+        """
+        path_obj = Path(path)
+        request_data: Dict[str, Any] = {
+            "wait": wait,
+            "timeout": timeout,
+            "watch_interval": watch_interval,
+            "overwrite": overwrite,
+            "telemetry": telemetry,
+            "reason": reason,
+            "instruction": instruction,
+        }
+        if to is not None:
+            request_data["to"] = to
+        if parent is not None:
+            request_data["parent"] = parent
+        if args is not None:
+            request_data["args"] = args
+        if path_obj.exists():
+            if path_obj.is_dir():
+                import tempfile
+                import zipfile
+
+                zip_path = None
+                try:
+                    zip_path = tempfile.mktemp(suffix=".zip")
+                    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                        for f in path_obj.rglob("*"):
+                            if f.is_file():
+                                zf.write(f, f.relative_to(path_obj))
+                    request_data["source_name"] = path_obj.name
+                    request_data["temp_file_id"] = await self._upload_temp_file(zip_path)
+                finally:
+                    if zip_path:
+                        Path(zip_path).unlink(missing_ok=True)
+            elif path_obj.is_file():
+                request_data["source_name"] = path_obj.name
+                request_data["temp_file_id"] = await self._upload_temp_file(path)
+            else:
+                request_data["path"] = path
+        else:
+            request_data["path"] = path
+
+        request_data = self._compact_request_body(request_data)
+        response = await self._http.post("/api/v1/user/resources", json=request_data)
+        return self._handle_response_data(response).get("result", {})
+
     async def batch_add_messages(
         self,
         session_id: str,
@@ -1529,6 +1597,37 @@ class SyncHTTPClient:
                 directly_upload_media=directly_upload_media,
                 preserve_structure=preserve_structure,
                 watch_interval=watch_interval,
+                args=args,
+                telemetry=telemetry,
+            )
+        )
+
+    def add_user_resource(
+        self,
+        path: str,
+        to: Optional[str] = None,
+        parent: Optional[str] = None,
+        reason: str = "",
+        instruction: str = "",
+        wait: bool = False,
+        timeout: Optional[float] = None,
+        watch_interval: float = 0,
+        overwrite: bool = False,
+        args: Optional[Dict[str, Any]] = None,
+        telemetry: Any = False,
+    ) -> Dict[str, Any]:
+        """Add resource to the current user's space. (sync wrapper)"""
+        return run_async(
+            self._async_client.add_user_resource(
+                path=path,
+                to=to,
+                parent=parent,
+                reason=reason,
+                instruction=instruction,
+                wait=wait,
+                timeout=timeout,
+                watch_interval=watch_interval,
+                overwrite=overwrite,
                 args=args,
                 telemetry=telemetry,
             )
