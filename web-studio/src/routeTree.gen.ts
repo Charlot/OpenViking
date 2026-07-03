@@ -15,6 +15,7 @@ import { Route as RetrievalRouteRouteImport } from './routes/retrieval/route'
 import { Route as RequestLogsRouteRouteImport } from './routes/request-logs/route'
 import { Route as PlaygroundRouteRouteImport } from './routes/playground/route'
 import { Route as HomeRouteRouteImport } from './routes/home/route'
+import { Route as FileViewerRouteRouteImport } from './routes/file-viewer/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SessionsIndexRouteImport } from './routes/sessions/index'
 import { Route as OauthVerifyRouteImport } from './routes/oauth/verify'
@@ -50,6 +51,11 @@ const HomeRouteRoute = HomeRouteRouteImport.update({
   path: '/home',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FileViewerRouteRoute = FileViewerRouteRouteImport.update({
+  id: '/file-viewer',
+  path: '/file-viewer',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -73,6 +79,7 @@ const OauthConsentRoute = OauthConsentRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/file-viewer': typeof FileViewerRouteRoute
   '/home': typeof HomeRouteRoute
   '/playground': typeof PlaygroundRouteRoute
   '/request-logs': typeof RequestLogsRouteRoute
@@ -85,6 +92,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/file-viewer': typeof FileViewerRouteRoute
   '/home': typeof HomeRouteRoute
   '/playground': typeof PlaygroundRouteRoute
   '/request-logs': typeof RequestLogsRouteRoute
@@ -97,6 +105,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/file-viewer': typeof FileViewerRouteRoute
   '/home': typeof HomeRouteRoute
   '/playground': typeof PlaygroundRouteRoute
   '/request-logs': typeof RequestLogsRouteRoute
@@ -111,6 +120,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/file-viewer'
     | '/home'
     | '/playground'
     | '/request-logs'
@@ -123,6 +133,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/file-viewer'
     | '/home'
     | '/playground'
     | '/request-logs'
@@ -134,6 +145,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/file-viewer'
     | '/home'
     | '/playground'
     | '/request-logs'
@@ -147,6 +159,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  FileViewerRouteRoute: typeof FileViewerRouteRoute
   HomeRouteRoute: typeof HomeRouteRoute
   PlaygroundRouteRoute: typeof PlaygroundRouteRoute
   RequestLogsRouteRoute: typeof RequestLogsRouteRoute
@@ -201,6 +214,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomeRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/file-viewer': {
+      id: '/file-viewer'
+      path: '/file-viewer'
+      fullPath: '/file-viewer'
+      preLoaderRoute: typeof FileViewerRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -246,6 +266,7 @@ const SessionsRouteRouteWithChildren = SessionsRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  FileViewerRouteRoute: FileViewerRouteRoute,
   HomeRouteRoute: HomeRouteRoute,
   PlaygroundRouteRoute: PlaygroundRouteRoute,
   RequestLogsRouteRoute: RequestLogsRouteRoute,

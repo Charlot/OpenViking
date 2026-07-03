@@ -80,6 +80,8 @@ import {
 
 export const Route = createFileRoute('/file-viewer')({
   validateSearch: (search: Record<string, unknown>): PlaygroundSearch => ({
+    account: typeof search.account === 'string' ? search.account : undefined,
+    user: typeof search.user === 'string' ? search.user : undefined,
     file: typeof search.file === 'string' ? search.file : undefined,
     panel:
       search.panel === 'agent' || search.panel === 'terminal'
@@ -103,23 +105,36 @@ function PlaygroundRoute() {
 
 function ConnectionBar() {
   const queryClient = useQueryClient()
-  const [account, setAccount] = useState(() => ovClient.getConnection().accountId)
-  const [user, setUser] = useState('')
+  const search = Route.useSearch()
+  const navigate = useNavigate({ from: Route.fullPath })
+
+  const [account, setAccount] = useState(
+    () => search.account || ovClient.getConnection().accountId,
+  )
+  const [user, setUser] = useState(() => search.user || '')
+
   // Apply initial values on first render
   useEffect(() => {
     ovClient.setFileViewerIdentity(account, user)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const apply = () => {
-    ovClient.setFileViewerIdentity(account.trim(), user.trim())
+    const a = account.trim()
+    const u = user.trim()
+    ovClient.setFileViewerIdentity(a, u)
     void queryClient.invalidateQueries()
+    // Sync to URL so page refresh preserves context
+    void navigate({
+      replace: true,
+      search: (prev) => ({ ...prev, account: a || undefined, user: u || undefined }),
+    })
   }
 
   return (
     <div className="flex items-center gap-3 px-4 py-2">
       <span className="text-xs font-medium text-muted-foreground">Account:</span>
       <Input
-        className="h-7 w-28 text-xs font-mono"
+        className="h-7 w-56 text-xs font-mono"
         value={account}
         placeholder="all"
         onChange={(e) => setAccount(e.target.value)}
