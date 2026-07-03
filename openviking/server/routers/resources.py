@@ -227,6 +227,7 @@ async def add_resource(
                 timeout=request.timeout,
                 allow_local_path_resolution=allow_local_path_resolution,
                 enforce_public_remote_targets=True,
+                overwrite=request.overwrite,
                 args=request.args,
                 **kwargs,
             )
