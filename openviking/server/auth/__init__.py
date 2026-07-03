@@ -149,7 +149,7 @@ async def get_request_context(
     ctx = RequestContext(
         user=UserIdentifier(
             identity.account_id or "default",
-            identity.user_id or "default",
+            identity.user_id or identity.account_id or "default",
         ),
         role=identity.role,
         actor_peer_id=actor_peer_id,

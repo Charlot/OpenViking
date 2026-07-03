@@ -1,7 +1,7 @@
 import openviking as ov
 
 
-def test_ov_client_add_resource():
+def test_ov_client_add_resource(overwrite=False):
     client = ov.SyncHTTPClient(
         url="http://192.168.198.128:11933",
         api_key="ak-d962b560f65644e3a91b3bb6bf9e5467",
@@ -18,7 +18,8 @@ def test_ov_client_add_resource():
         #     "./data/simple.md"
         # )
         result = client.add_resource(
-            path="./data/simple.md"
+            path="./data/simple.md",
+            overwrite=overwrite
         )
         root_uri = result["root_uri"]
         print('result', result)
@@ -46,12 +47,13 @@ def test_ov_client_add_resource():
 
 def test_ov_client_add_user_resource(overwrite:bool=False):
     """测试 add_user_resource：文件直接到用户空间。"""
-    account = "test-01"
+    account = "cycloneclaw"
+    user = "user-01"
     client = ov.SyncHTTPClient(
         url="http://192.168.198.128:11933",
         api_key="ak-d962b560f65644e3a91b3bb6bf9e5467",
-        account="cycloneclaw",
-        user=test_user,
+        account=account,
+        user=user,
     )
 
     try:
@@ -60,13 +62,13 @@ def test_ov_client_add_user_resource(overwrite:bool=False):
         # 1. 上传到用户空间
         result = client.add_user_resource(
             path="./data/simple.md",
-            to="viking://user/resources/test-add-user/",
+            to="viking://user/resources/folder1/",
             overwrite=overwrite,
             wait=True,
         )
         root_uri = result["root_uri"]
         print(f"add_user_resource root_uri: {root_uri}")
-        assert root_uri.startswith(f"viking://user/{account}/resources/"), \
+        assert root_uri.startswith(f"viking://user/{user}/resources/"), \
             f"Expected user path, got: {root_uri}"
 
         # 2. 确认可搜索
@@ -86,5 +88,5 @@ def test_ov_client_add_user_resource(overwrite:bool=False):
 
 
 if __name__ == "__main__":
-    test_ov_client_add_resource()
-    test_ov_client_add_user_resource()
+    test_ov_client_add_resource(overwrite=True)
+    test_ov_client_add_user_resource(overwrite=True)

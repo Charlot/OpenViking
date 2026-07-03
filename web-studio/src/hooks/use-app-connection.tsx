@@ -87,7 +87,21 @@ function readStoredConnection(): Partial<ConnectionDraft> {
   }
 
   try {
-    const raw = window.localStorage.getItem(CONNECTION_STORAGE_KEY)
+    const raw = (() => {
+      const stored = window.localStorage.getItem(CONNECTION_STORAGE_KEY)
+      if (!stored) return null
+      try {
+        const parsed = JSON.parse(stored)
+        // Sanitize: user_id must be alphanumeric
+        if (parsed.userId && !/^[a-zA-Z0-9_-]+$/.test(parsed.userId)) {
+          parsed.userId = 'default'
+          window.localStorage.setItem(CONNECTION_STORAGE_KEY, JSON.stringify(parsed))
+        }
+        return JSON.stringify(parsed)
+      } catch {
+        return null
+      }
+    })()
     if (!raw) {
       return {}
     }

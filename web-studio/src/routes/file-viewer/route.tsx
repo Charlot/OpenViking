@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowLeftIcon,
@@ -12,7 +13,7 @@ import { toast } from 'sonner'
 
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
-import { useAppConnection } from '#/hooks/use-app-connection'
+import { ovClient } from '#/lib/ov-client'
 import {
   Dialog,
   DialogContent,
@@ -101,25 +102,38 @@ function PlaygroundRoute() {
 }
 
 function ConnectionBar() {
-  const { connection, saveConnection } = useAppConnection()
+  const queryClient = useQueryClient()
+  const [account, setAccount] = useState(() => ovClient.getConnection().accountId)
+  const [user, setUser] = useState('')
+  // Apply initial values on first render
+  useEffect(() => {
+    ovClient.setFileViewerIdentity(account, user)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const apply = () => {
+    ovClient.setFileViewerIdentity(account.trim(), user.trim())
+    void queryClient.invalidateQueries()
+  }
 
   return (
     <div className="flex items-center gap-3 px-4 py-2">
       <span className="text-xs font-medium text-muted-foreground">Account:</span>
       <Input
         className="h-7 w-28 text-xs font-mono"
-        value={connection.accountId}
-        onChange={(e) =>
-          saveConnection({ ...connection, accountId: e.target.value })
-        }
+        value={account}
+        placeholder="all"
+        onChange={(e) => setAccount(e.target.value)}
+        onBlur={apply}
+        onKeyDown={(e) => e.key === 'Enter' && apply()}
       />
       <span className="text-xs text-muted-foreground">User:</span>
       <Input
         className="h-7 w-28 text-xs font-mono"
-        value={connection.userId}
-        onChange={(e) =>
-          saveConnection({ ...connection, userId: e.target.value })
-        }
+        value={user}
+        placeholder="all"
+        onChange={(e) => setUser(e.target.value)}
+        onBlur={apply}
+        onKeyDown={(e) => e.key === 'Enter' && apply()}
       />
     </div>
   )
@@ -507,7 +521,7 @@ function PlaygroundWorkbench() {
   }, [])
 
   return (
-    <div className="-mx-4 -my-6 flex h-[calc(100svh-3rem)] min-h-0 flex-col bg-background md:-mx-6">
+    <div className="-mx-4 flex h-[calc(100svh-3rem)] min-h-0 flex-col bg-background md:-mx-6">
       <div
         ref={layoutRef}
         className="flex min-h-0 flex-1 flex-col bg-background lg:flex-row"

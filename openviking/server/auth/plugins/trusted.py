@@ -125,15 +125,9 @@ class TrustedAuthPlugin(AuthPlugin):
                 )
 
         if _trusted_request_requires_explicit_identity(request.url.path):
-            missing_fields = []
-            if not effective_account_id:
-                missing_fields.append("X-OpenViking-Account or explicit account_id in the URL")
-            if not effective_user_id:
-                missing_fields.append("X-OpenViking-User or explicit user_id in the URL")
-            if missing_fields:
-                raise InvalidArgumentError(
-                    "Trusted mode requests must include " + " and ".join(missing_fields) + "."
-                )
+            # Data paths: account and user are optional.
+            # When missing, default to "trusted" — ADMIN role ensures visibility.
+            pass
 
         api_key_manager = getattr(request.app.state, "api_key_manager", None)
         # ROOT key holders authenticated by root_api_key get ADMIN role

@@ -420,6 +420,7 @@ class AsyncHTTPClient:
         directly_upload_media: bool = True,
         preserve_structure: Optional[bool] = None,
         watch_interval: float = 0,
+        overwrite: bool = False,
         args: Optional[Dict[str, Any]] = None,
         telemetry: Any = False,
     ) -> Dict[str, Any]:
@@ -439,6 +440,7 @@ class AsyncHTTPClient:
             "exclude": exclude,
             "directly_upload_media": directly_upload_media,
             "watch_interval": watch_interval,
+            "overwrite": overwrite,
             "args": args or {},
             "telemetry": telemetry,
         }
@@ -1578,6 +1580,7 @@ class SyncHTTPClient:
         directly_upload_media: bool = True,
         preserve_structure: Optional[bool] = None,
         watch_interval: float = 0,
+        overwrite: bool = False,
         args: Optional[Dict[str, Any]] = None,
         telemetry: Any = False,
     ) -> Dict[str, Any]:
@@ -1590,6 +1593,7 @@ class SyncHTTPClient:
                 instruction=instruction,
                 wait=wait,
                 timeout=timeout,
+                overwrite=overwrite,
                 strict=strict,
                 ignore_dirs=ignore_dirs,
                 include=include,

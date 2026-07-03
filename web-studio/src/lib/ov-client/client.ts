@@ -158,6 +158,9 @@ export function createOvClient(options: OvClientOptions = {}): OvClientAdapter {
     defaultTelemetry: options.defaultTelemetry ?? true,
   }
 
+  // file-viewer override — set via setFileViewerIdentity()
+  const _fileViewerOverride: { accountId?: string; userId?: string } = {}
+
   let connection: OvConnectionState = {
     adminApiKey: options.connection?.adminApiKey ?? '',
     apiKey:
@@ -188,9 +191,11 @@ export function createOvClient(options: OvClientOptions = {}): OvClientAdapter {
       ? connection.adminApiKey || connection.apiKey
       : connection.apiKey || connection.adminApiKey
     setOptionalHeader(headers, 'X-API-Key', apiKey)
-    if (connection.identityHeaders) {
-      setOptionalHeader(headers, 'X-OpenViking-Account', connection.accountId)
-      setOptionalHeader(headers, 'X-OpenViking-User', connection.userId)
+    const accountId = _fileViewerOverride.accountId ?? (connection.identityHeaders ? connection.accountId : undefined)
+    const userId = _fileViewerOverride.userId ?? (connection.identityHeaders ? connection.userId : undefined)
+    if (accountId || userId) {
+      if (accountId) setOptionalHeader(headers, 'X-OpenViking-Account', accountId)
+      if (userId) setOptionalHeader(headers, 'X-OpenViking-User', userId)
     } else {
       headers.delete('X-OpenViking-Account')
       headers.delete('X-OpenViking-User')
@@ -312,6 +317,10 @@ export function createOvClient(options: OvClientOptions = {}): OvClientAdapter {
     getOptions,
     instance,
     setConnection,
+    setFileViewerIdentity(accountId?: string, userId?: string) {
+      _fileViewerOverride.accountId = accountId
+      _fileViewerOverride.userId = userId
+    },
     setOptions,
   }
 }

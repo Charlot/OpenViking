@@ -505,3 +505,27 @@ openviking/
 | Web Studio | 无需 npm | ~10000 行 TS | 零运维 |
 
 **结论：RAGFS 是唯一不能动的核心。其余均可替换或剥离。**
+
+---
+
+## 10. ⭐ 本地 SDK 安装
+
+SDK 源码在 `sdk/python/`，开发模式下安装：
+
+```bash
+# editable 模式（修改 SDK 代码后无需重新安装）
+uv pip install -e sdk/python/
+
+# 或在虚拟环境中
+source .venv/bin/activate
+pip install -e sdk/python/
+```
+
+验证安装：
+
+```python
+import openviking_sdk
+print(openviking_sdk.__version__)
+```
+
+> `-e`（editable）意味着改 SDK 代码后 import 时直接加载最新代码，不需要重新 `pip install`。
