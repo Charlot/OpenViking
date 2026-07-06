@@ -62,7 +62,7 @@ def test_ov_client_add_user_resource(overwrite:bool=False):
         # 1. 上传到用户空间
         result = client.add_user_resource(
             path="./data/simple.md",
-            to="viking://user/resources/folder1/",
+            to="viking://user/resources/folder1/simple.md",
             overwrite=overwrite,
             wait=True,
         )
