@@ -767,7 +767,7 @@ class ResourceService:
                             retryable=True,
                         ) from exc
 
-                if candidate_uri:
+                if candidate_uri and not target.overwrite:
                     max_attempts = 100
                     reserved = False
                     for attempt in range(max_attempts + 1):
@@ -873,18 +873,28 @@ class ResourceService:
                     "task_id": task.task_id,
                 }
 
+            # For user scope, pass the user resources root as parent so
+            # process_resource places files under the correct user directory.
+            if scope == "user":
+                from openviking.core.namespace import user_space_fragment
+
+                proc_parent = target.parent or f"viking://user/{user_space_fragment(ctx)}/resources"
+            else:
+                proc_parent = target.parent
+
             result = await self._resource_processor.process_resource(
                 path=path,
                 ctx=ctx,
                 reason=reason,
                 instruction=instruction,
-                scope="resources",
-                to=target.to,
-                parent=target.parent,
+                scope=scope,
+                to=target.to if scope != "user" else None,
+                parent=proc_parent,
                 build_index=build_index,
                 summarize=summarize,
                 stage_callback=stage_callback,
                 allow_local_path_resolution=allow_local_path_resolution,
+                overwrite=overwrite,
                 **kwargs,
             )
 

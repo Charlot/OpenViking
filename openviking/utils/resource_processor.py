@@ -289,7 +289,10 @@ class ResourceProcessor:
                 lock_manager = get_lock_manager()
                 try:
                     if candidate_uri:
-                        if resource_lock.active:
+                        if kwargs.get("overwrite"):
+                            # overwrite mode: use the exact URI, skip suffix
+                            pass
+                        elif resource_lock.active:
                             root_uri = candidate_uri
                         else:
                             root_uri, resource_lock = await self.reserve_unique_candidate(
