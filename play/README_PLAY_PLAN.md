@@ -53,17 +53,27 @@
 
 | # | 任务 | 状态 | 优先级 | 说明 |
 |------|------|------|------|------|
-| 1.5.1 | 新增 `POST /api/v1/user/resources` 路由 | 🔴 未开始 | P0 | 调 `resource_service.add_resource(scope="user")` |
-| 1.5.2 | `tree_builder._get_base_uri("user")` 改为返回用户 resources 根路径 | 🔴 未开始 | P0 | `viking://user/{user_id}/resources/` |
-| 1.5.3 | SDK `add_user_resource()` 方法 | 🔴 未开始 | P0 | async + sync 封装 |
-| 1.5.4 | 验证：上传文件到用户空间，确认可搜索 | 🔴 未开始 | P0 | |
+| 1.5.1 | 新增 `POST /api/v1/user/resources` 路由 | 🟢 完成 | P0 | `resource_service.add_user_resource(scope="user")` |
+| 1.5.2 | `ContentTargetSpec` 支持 scope + overwrite | 🟢 完成 | P0 | `from_fields()` 参数透传 |
+| 1.5.3 | SDK `add_user_resource()` 方法 | 🟢 完成 | P0 | async + sync 封装，含 overwrite |
+| 1.5.4 | SDK `add_resource()` overwrite 参数 | 🟢 完成 | P0 | async + sync，路由透传 |
+| 1.5.5 | 测试：上传 → 覆盖 → 搜索 | 🟢 完成 | P0 | `test_client.py` |
 
-### 1.6 MCP Tools
+### 1.6 trusted 模式增强
 
 | # | 任务 | 状态 | 优先级 | 说明 |
 |------|------|------|------|------|
-| 1.6.1 | MCP tool: `set_acl` | 🔴 未开始 | P2 | |
-| 1.6.2 | MCP tool: `get_acl` | 🔴 未开始 | P2 | |
+| 1.6.1 | ROOT Key → ADMIN 角色（数据路径） | 🟢 完成 | P1 | `trusted.py` 满级 ADMIN |
+| 1.6.2 | `is_accessible` ADMIN 跨用户 | 🟢 完成 | P1 | `namespace.py` |
+| 1.6.3 | `_tenant_filter` ADMIN 不过滤搜索 | 🟢 完成 | P1 | 返回 None |
+| 1.6.4 | User header 可选（空时不强制要求） | 🟢 完成 | P1 | `trusted.py` + `auth/__init__.py` |
+
+### 1.7 MCP Tools
+
+| # | 任务 | 状态 | 优先级 | 说明 |
+|------|------|------|------|------|
+| 1.7.1 | MCP tool: `set_acl` | 🔴 未开始 | P2 | |
+| 1.7.2 | MCP tool: `get_acl` | 🔴 未开始 | P2 | |
 
 ---
 
@@ -87,11 +97,21 @@
 | 2.2.3 | Playground 👁 toggle 开关 | 🟢 完成 | P1 | `ContextExplorerHeader` |
 | 2.2.4 | `ContextTreeNode` 递归传递 `showHidden` | 🟢 完成 | P1 | |
 
-### 2.3 文件操作
+### 2.3 文件查看器 `[新设计]`
 
 | # | 任务 | 状态 | 优先级 | 说明 |
 |------|------|------|------|------|
-| 2.3.1 | 上传同名文件覆盖确认 | 🔴 未开始 | P1 | 前端检查 + 确认弹窗 |
+| 2.3.1 | File Viewer 独立页面（拷贝 Playground） | 🟢 完成 | P1 | `/file-viewer` 路由 |
+| 2.3.2 | Account/User 切换栏（独立连接，不共享 localStorage） | 🟢 完成 | P1 | `ovClient.setFileViewerIdentity()` |
+| 2.3.3 | URL 参数同步（刷新恢复） | 🟢 完成 | P1 | `?account=xxx&user=yyy` |
+| 2.3.4 | Account 自动填入（从 Settings） | 🟢 完成 | P1 | `ovClient.getConnection().accountId` |
+| 2.3.5 | 导航菜单入口（中文 + 英文） | 🟢 完成 | P1 | `app-shell.tsx` + i18n |
+
+### 2.4 文件操作
+
+| # | 任务 | 状态 | 优先级 | 说明 |
+|------|------|------|------|------|
+| 2.4.1 | 上传同名文件覆盖确认 | 🔴 未开始 | P1 | 前端检查 + 确认弹窗 |
 
 ---
 
@@ -144,8 +164,8 @@
 
 | 模块 | 🟢 完成 | 🔴 未开始 | ⚪ 不执行 |
 |------|------|------|------|
-| OpenViking 核心 | 16 | 6 (4 P0 + 2 P2) | 0 |
-| 前端 | 6 | 2 (P1+P2) | 0 |
+| OpenViking 核心 | 25 | 2 (P2) | 0 |
+| 前端 | 11 | 2 (P1+P2) | 0 |
 | 上层产品 | 0 | 15 (均为 P0) | 0 |
 | 不执行 | — | — | 4 |
 
@@ -153,10 +173,9 @@
 
 | 优先级 | 完成 | 未开始 | 说明 |
 |------|------|------|------|
-| P0 | 0 | 19 | add_user_resource + 上层产品 |
-| P1 | 20 | 1 | OpenViking 核心 + 前端主体 + 覆盖确认 |
+| P0 | 5 | 15 | add_user_resource 完成，上层产品待建 |
+| P1 | 29 | 1 | 核心功能全部完成 |
 | P2 | 2 | 3 | SDK acl_list + MCP + ACL 树图标 |
 | — | — | 4 | 不执行 |
-| 不执行 | — | 4 | 4 |
 
-**OpenViking 侧基本完成。剩余工作主要在上层产品。**
+**OpenViking 侧完成。剩余工作在上层产品（网关 + 文件管理前端 + Agent 集成）。**

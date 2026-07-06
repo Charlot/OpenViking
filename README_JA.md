@@ -10,7 +10,7 @@
 
 [English](README.md) / [中文](README_CN.md) / 日本語
 
-<a href="https://www.openviking.ai">Webサイト</a> · <a href="https://github.com/volcengine/OpenViking">GitHub</a> · <a href="https://github.com/volcengine/OpenViking/issues">Issues</a> · <a href="https://www.openviking.ai/docs">ドキュメント</a>
+<a href="https://www.openviking.ai">Webサイト</a> · <a href="https://openviking.ai/studio">ライブデモ</a> · <a href="https://github.com/volcengine/OpenViking">GitHub</a> · <a href="https://github.com/volcengine/OpenViking/issues">Issues</a> · <a href="https://www.openviking.ai/docs">ドキュメント</a>
 
 [![][release-shield]][release-link]
 [![][github-stars-shield]][github-stars-link]
@@ -58,6 +58,8 @@ OpenVikingを使えば、開発者はローカルファイルを管理するよ�
 ---
 
 ## クイックスタート
+
+> 💡 **まず実際の動作を見てみたい方へ**：[OpenViking Studio](https://openviking.ai/studio) をお試しください。コンテキストプレイグラウンド、セマンティック検索、マルチエージェント Hub を備えたライブホスト環境で、インストール不要です。
 
 ### ローカルデプロイ
 
@@ -117,7 +119,7 @@ Volcengineはモデル名とエンドポイントIDの両方をサポートし�
 {
   "vlm": {
     "provider": "volcengine",
-    "model": "doubao-seed-2-0-pro-260215",
+    "model": "doubao-seed-2-0-lite-260428",
     "api_key": "your-api-key",
     "api_base": "https://ark.cn-beijing.volces.com/api/v3"
   }
@@ -199,7 +201,7 @@ OpenAIの公式APIを使用：
     "api_base" : "<api-endpoint>",     // APIエンドポイントアドレス
     "api_key"  : "<your-api-key>",     // モデルサービスAPIキー
     "provider" : "<provider-type>",    // プロバイダータイプ（volcengine、openai、deepseek、anthropicなど）
-    "model"    : "<model-name>",       // VLMモデル名（例：doubao-seed-2-0-pro-260215 または gpt-4-vision-preview）
+    "model"    : "<model-name>",       // VLMモデル名（例：doubao-seed-2-0-lite-260428 または gpt-4-vision-preview）
     "max_concurrent": 100              // セマンティック処理の最大同時LLM呼び出し数（デフォルト: 100）
   }
 }
@@ -237,7 +239,7 @@ OpenAIの公式APIを使用：
     "api_base" : "https://ark.cn-beijing.volces.com/api/v3",
     "api_key"  : "your-volcengine-api-key",
     "provider" : "volcengine",
-    "model"    : "doubao-seed-2-0-pro-260215",
+    "model"    : "doubao-seed-2-0-lite-260428",
     "max_concurrent": 100
   }
 }

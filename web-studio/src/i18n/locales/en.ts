@@ -310,6 +310,8 @@ const en = {
     },
     usageDisabled:
       'Usage/Audit is not initialized, so live usage stats are unavailable.',
+    usageAccessRequired:
+      'Current connection has no admin/root role. Configure an API key with Console Usage/Audit access in Connection & Identity.',
   },
   operations: {
     page: {
@@ -317,6 +319,11 @@ const en = {
     },
   },
   requestLogs: {
+    accessRequired: {
+      description:
+        'Current connection has no admin/root role. Configure an API key with Console Usage/Audit access in Connection & Identity.',
+      title: 'Admin access required',
+    },
     clear: 'Clear',
     description:
       'Inspect server-side audited API requests for the current identity, including status, latency, and request identifiers.',
@@ -552,8 +559,7 @@ const en = {
       loadingEditor: 'Loading editor...',
       markdownPreview: 'Preview',
       markdownSource: 'Source',
-      noDirectoryContext:
-        'No abstract or overview available for this folder.',
+      noDirectoryContext: 'No abstract or overview available for this folder.',
       save: 'Save',
       selectDirectoryContext: 'Select a chip to show folder context.',
       unsupportedBinary: 'Binary files do not support text preview.',
