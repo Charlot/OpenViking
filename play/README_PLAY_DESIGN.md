@@ -684,3 +684,46 @@ OpenViking:
 | `server.root_api_key` | `"ak-xxx"` | 所有请求共用的服务间凭证 |
 
 **零代码改动**，配置即可。
+
+---
+
+## 10. 资源路径规范 `[新设计]`
+
+### 10.1 容器目录机制
+
+`add_resource` 和 `add_user_resource` 会为每个资源创建**容器目录**，解析产物统一放在目录下：
+
+```
+上传 simple.md
+  → 创建容器: {base}/simple/
+  → 文件存放: {base}/simple/simple.md
+  → 摘要/概览: {base}/simple/.abstract.md, .overview.md
+  → 提取图片: {base}/simple/page1_img1.png
+```
+
+### 10.2 `to` 参数规则
+
+`to` 决定容器目录的**父级路径**和可选**容器名**。容器目录名永远不带扩展名。
+
+| `to` 参数 | 容器名 | 容器父目录 | 最终路径 |
+|------|------|------|------|
+| 不传 | 源文件 stem | `base` | `simple/simple.md` |
+| 无扩展名（目录） | 源文件 stem | `base/subfolder` | `subfolder/simple/simple.md` |
+| 有扩展名（重命名） | `to` 的 stem | `base/parent_dir` | `parent_dir/report/report.md` |
+
+**规则：**
+- `to` 有扩展名 → 重命名：容器名和文件名都用 `to` 的 stem，文件扩展名取源文件
+- `to` 无扩展名 → 放 subfolder：容器名和文件名来自源文件
+- 容器永远不带扩展名
+- `to="report.md"` + `simple.md` → `report/report.md`（全用新名字）
+
+### 10.3 两个 scope 的一致性
+
+| | `add_resource` (scope=resources) | `add_user_resource` (scope=user) |
+|------|------|------|
+| 基路径 | `viking://resources/` | `viking://user/{user_id}/resources/` |
+| 容器机制 | ✅ 始终创建 | ✅ 始终创建 |
+| `to=目录` | 容器在 to 下 | 容器在 to 下 |
+| `to=文件` | 容器名取 to 的 stem | 容器名取 to 的 stem |
+
+**两个 scope 行为统一——始终创建容器目录。**

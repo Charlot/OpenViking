@@ -113,10 +113,40 @@ class _NormalizedAddResourceArgs:
     watch_auth_state: Optional[Dict[str, Any]] = None
 
 
+async def _rename_container_files(viking_fs, root_uri, to_uri, ctx):
+    """Rename files inside the container to match to_uri's stem."""
+    if not viking_fs or not root_uri or not to_uri:
+        return
+    import os as _os
+
+    new_name = _os.path.splitext(to_uri.rstrip("/").rsplit("/", 1)[-1])[0]
+    try:
+        entries = await viking_fs.ls(root_uri, show_all_hidden=False, ctx=ctx)
+        for entry in entries:
+            name = entry.get("name", "")
+            if entry.get("isDir") or name.startswith("."):
+                continue
+            ext = _os.path.splitext(name)[1]
+            new_full = f"{root_uri}/{new_name}{ext}"
+            old_full = f"{root_uri}/{name}"
+            if old_full != new_full:
+                await viking_fs.mv(old_full, new_full, ctx=ctx)
+    except Exception:
+        pass  # best-effort; failure is non-fatal
+
+
 def _looks_like_file_target(uri: str) -> bool:
-    """Return True if uri looks like an exact file target (has a file extension)."""
     name = uri.rstrip("/").rsplit("/", 1)[-1]
     return "." in name and not name.startswith(".")
+
+
+def _file_stem(path: str) -> str:
+    import os as _os
+
+    name = path.rstrip("/").rsplit("/", 1)[-1]
+    if _looks_like_file_target(name):
+        return _os.path.splitext(name)[0]
+    return name
 
 
 class ResourceService:
@@ -347,7 +377,7 @@ class ResourceService:
             kind="resource",
             to=to,
             parent=parent,
-            create_parent=bool(kwargs.get("create_parent", False)),
+            create_parent=kwargs.get("create_parent", True),
         )
 
         from openviking.service.task_tracker import get_task_tracker
@@ -388,8 +418,8 @@ class ResourceService:
                 kwargs,
                 path=path,
                 ctx=ctx,
-                to=root_uri,
-                parent=None,
+                to=to,
+                parent=parent,
                 reason=reason,
                 instruction=instruction,
                 timeout=timeout,
@@ -399,6 +429,7 @@ class ResourceService:
                 skip_watch_management=skip_watch_management,
                 allow_local_path_resolution=allow_local_path_resolution,
                 enforce_public_remote_targets=enforce_public_remote_targets,
+                create_parent=True,
             )
             background = asyncio.create_task(
                 self._run_add_resource_task(
@@ -453,6 +484,7 @@ class ResourceService:
                 stage_callback=_set_stage,
                 **add_kwargs,
             )
+
             if result.get("status") == "error":
                 errors = result.get("errors") or ["resource processing failed"]
                 await task_tracker.fail(
@@ -510,15 +542,16 @@ class ResourceService:
         doc_name = self._target_doc_name(path, source_name, source_info)
         source_path = source_info.source_path or source_name or path
         scope = getattr(target, "scope", None) or "resources"
+
         if scope == "user":
             from openviking.core.namespace import user_space_fragment
 
             user_resources_root = f"viking://user/{user_space_fragment(ctx)}/resources"
             effective_parent_uri = target.parent or user_resources_root
-            effective_to_uri = target.to
         else:
             effective_parent_uri = target.parent
-            effective_to_uri = target.to
+
+        effective_to_uri = target.to
 
         root_uri, candidate_uri = await self._resource_processor.tree_builder.resolve_target_uri(
             ctx=ctx,
@@ -712,7 +745,7 @@ class ResourceService:
                 kind="resource",
                 to=to,
                 parent=parent,
-                create_parent=bool(kwargs.get("create_parent", False)),
+                create_parent=kwargs.get("create_parent", True),
                 scope=scope,
                 overwrite=overwrite,
             )
@@ -879,50 +912,14 @@ class ResourceService:
                     "task_id": task.task_id,
                 }
 
-            # Resolve to/parent for process_resource.
-            # - to ending with file extension: exact target (no container dir)
-            # - to ending with / or no extension: parent directory (container created)
-            if scope == "user":
-                from openviking.core.namespace import user_space_fragment
-
-                base = f"viking://user/{user_space_fragment(ctx)}/resources"
-            else:
-                base = "viking://resources"
-
-            if target.to and _looks_like_file_target(target.to):
-                # Exact file: extract directory as parent, filename as final name.
-                # tree_builder's is_content_root_uri is too permissive and would
-                # treat any viking://resources/... URI as a parent directory.
-                # Bypass: place the file at the exact URI via mkdir parent + write.
-                to_normalized = target.to.rstrip("/")
-                proc_to = None
-                # Parent is the directory containing the target file
-                parent_dir = to_normalized.rsplit("/", 1)[0]
-                proc_parent = target.parent or parent_dir
-            elif target.to:
-                # Strip base prefix (with or without trailing slash) to get subpath
-                to_normalized = target.to.rstrip("/")
-                base_normalized = base.rstrip("/")
-                if to_normalized == base_normalized:
-                    to_stripped = ""
-                elif to_normalized.startswith(base_normalized + "/"):
-                    to_stripped = to_normalized[len(base_normalized) + 1:]
-                else:
-                    to_stripped = to_normalized
-                proc_parent = f"{base_normalized}/{to_stripped}" if to_stripped else base_normalized
-                proc_to = None
-            else:
-                proc_parent = target.parent or base
-                proc_to = None
-
             result = await self._resource_processor.process_resource(
                 path=path,
                 ctx=ctx,
                 reason=reason,
                 instruction=instruction,
                 scope=scope,
-                to=proc_to,
-                parent=proc_parent,
+                to=target.to,
+                parent=target.parent,
                 build_index=build_index,
                 summarize=summarize,
                 stage_callback=stage_callback,
@@ -930,6 +927,11 @@ class ResourceService:
                 overwrite=overwrite,
                 **kwargs,
             )
+
+            # Rename container file if to specified a new name.
+            root_uri = result.get("root_uri")
+            if root_uri and target.to and _looks_like_file_target(target.to.rstrip("/").rsplit("/", 1)[-1]):
+                await _rename_container_files(self._viking_fs, root_uri, target.to, ctx)
 
             if result.get("status") == "error":
                 return result

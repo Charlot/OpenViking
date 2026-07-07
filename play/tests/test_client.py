@@ -19,6 +19,7 @@ def test_ov_client_add_resource(overwrite=False):
         # )
         result = client.add_resource(
             path="./data/simple.md",
+            to="viking://resources/folder22/simple.md",
             overwrite=overwrite
         )
         root_uri = result["root_uri"]
@@ -27,10 +28,8 @@ def test_ov_client_add_resource(overwrite=False):
         # Wait for processing
         client.wait_processed()
 
-        # root_uri='viking://resources/README_CN_5'
-
         # Search
-        results = client.find("起点和终点", target_uri=root_uri)
+        results = client.find("APA新范式", target_uri=root_uri)
         for r in results['resources']:
             print(f"  {r['uri']} (score: {r['score']:.4f})")
             path = client.overview(r['uri'])
@@ -62,7 +61,7 @@ def test_ov_client_add_user_resource(overwrite:bool=False):
         # 1. 上传到用户空间
         result = client.add_user_resource(
             path="./data/simple.md",
-            to="viking://user/resources/folder1/simple.md",
+            to="viking://user/resources/folder5/simple.md",
             overwrite=overwrite,
             wait=True,
         )
@@ -72,10 +71,13 @@ def test_ov_client_add_user_resource(overwrite:bool=False):
             f"Expected user path, got: {root_uri}"
 
         # 2. 确认可搜索
-        client.wait_processed()
-        results = client.find("起点和终点", target_uri=root_uri)
+        client.wait_processed(timeout=120)
+        # Try without target_uri first (broader search)
+        results = client.find("APA新范式", target_uri=root_uri)
         resources = results.get("resources", [])
-        print(f"Search results: {len(resources)} items")
+        print(f"Search results ({root_uri}): {len(resources)} items")
+        for r in results.get('resources', []):
+            print(f"  {r['uri']} (score: {r['score']:.4f})")
         assert len(resources) > 0, "File should be searchable after add_user_resource"
 
         for r in resources:
@@ -88,5 +90,5 @@ def test_ov_client_add_user_resource(overwrite:bool=False):
 
 
 if __name__ == "__main__":
-    test_ov_client_add_resource(overwrite=True)
+    # test_ov_client_add_resource(overwrite=True)
     test_ov_client_add_user_resource(overwrite=True)

@@ -168,45 +168,39 @@ def invalidate_acl_tree(uri: str) -> None:
 
 # ── Cache warmup (called on server startup) ──
 
-async def warm_acl_cache(agfs) -> int:
+async def warm_acl_cache(viking_fs) -> int:
     """Scan AGFS for all ``.acl.json`` files and load into cache.
 
     Called once after server initialization. Returns count of loaded ACLs.
+    Uses VikingFS to handle URI-to-path conversion.
     """
-    from openviking.pyagfs.exceptions import AGFSNotFoundError
+    from openviking_cli.exceptions import NotFoundError
 
     count = 0
-    # Walk the user/ prefix in AGFS looking for .acl.json files.
-    try:
-        entries = await agfs.list("viking://user")
-    except AGFSNotFoundError:
-        logger.info("acl warmup: viking://user not found, cache empty")
-        return 0
-    except Exception:
-        logger.warning("acl warmup: could not list viking://user", exc_info=True)
-        return 0
 
-    async def _walk_agfs_dir(path: str) -> None:
+    async def _walk_viking_uri(uri: str) -> None:
         nonlocal count
         try:
-            items = await agfs.list(path)
-        except (AGFSNotFoundError, Exception):
+            items = await viking_fs.ls(uri, show_all_hidden=True)
+        except Exception:
             return
 
         for item in items:
-            rel = item.get("rel_path") or item.get("name") or ""
-            full = f"{path.rstrip('/')}/{rel}"
-
-            if rel == ACL_FILENAME:
-                acl = await _read_acl_from_agfs(agfs, full)
-                if acl:
-                    # Cache at the parent directory URI
-                    parent = path.rstrip("/")
-                    cache_acl(parent, acl)
-                    count += 1
+            item_uri = item.get("uri", "")
+            if item.get("name") == ACL_FILENAME:
+                # Read .acl.json via VikingFS
+                try:
+                    content = await viking_fs.read_file_bytes(item_uri)
+                    acl = json.loads(content) if content else None
+                    if acl:
+                        parent = uri.rstrip("/")
+                        cache_acl(parent, acl)
+                        count += 1
+                except Exception:
+                    pass
             elif item.get("isDir"):
-                await _walk_agfs_dir(full)
+                await _walk_viking_uri(item_uri)
 
-    await _walk_agfs_dir("viking://user")
+    await _walk_viking_uri("viking://user")
     logger.info("acl warmup complete: %d acl records loaded", count)
     return count

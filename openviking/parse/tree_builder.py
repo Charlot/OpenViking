@@ -102,13 +102,19 @@ class TreeBuilder:
             if parsed_org_repo:
                 final_doc_name = parsed_org_repo
 
-        auto_base_uri = self._get_base_uri(scope, source_path, source_format)
-        base_uri = parent_uri or auto_base_uri
-        use_to_as_parent = bool(to_uri and is_content_root_uri(to_uri, ctx, kind="resource"))
-        if to_uri and not use_to_as_parent:
-            return to_uri, None
+        # Parse to_uri: if last segment has extension, it's a rename target.
+        # Strip extension → override doc_name, use parent dir as base.
+        effective_to_uri = to_uri
+        if to_uri:
+            import os as _os
 
-        effective_parent_uri = (parent_uri or to_uri) if use_to_as_parent else parent_uri
+            last = to_uri.rstrip("/").rsplit("/", 1)[-1]
+            if "." in last and not last.startswith("."):
+                final_doc_name = VikingURI.sanitize_segment(_os.path.splitext(last)[0])
+                effective_to_uri = to_uri.rsplit("/", 1)[0]
+
+        auto_base_uri = self._get_base_uri(scope, source_path, source_format)
+        effective_parent_uri = parent_uri or effective_to_uri
         if effective_parent_uri:
             effective_parent_uri = effective_parent_uri.rstrip("/")
         if effective_parent_uri:
@@ -152,7 +158,7 @@ class TreeBuilder:
         parent_uri: Optional[str] = None,
         source_path: Optional[str] = None,
         source_format: Optional[str] = None,
-        create_parent: bool = False,
+        create_parent: bool = True,
     ) -> "BuildingTree":
         """
         Finalize URI metadata for a temp parse result.
@@ -180,13 +186,19 @@ class TreeBuilder:
 
         original_name = doc_dirs[0]["name"]
         doc_name = VikingURI.sanitize_segment(original_name)
+        # Container dirs never have file extensions.
+        import os as _os
+
+        stem, ext = _os.path.splitext(doc_name)
+        if ext:
+            doc_name = stem
         temp_doc_uri = f"{temp_uri}/{original_name}"  # use original name to find temp dir
         if original_name != doc_name:
             logger.debug(f"[TreeBuilder] Sanitized doc name: {original_name!r} -> {doc_name!r}")
 
         planned_uri, unique_candidate_uri = await self.resolve_target_uri(
             ctx=ctx,
-            doc_name=original_name,
+            doc_name=doc_name,
             scope=scope,
             to_uri=to_uri,
             parent_uri=parent_uri,

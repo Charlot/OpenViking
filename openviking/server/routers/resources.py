@@ -70,7 +70,7 @@ class AddResourceRequest(BaseModel):
     temp_file_id: Optional[str] = None
     to: Optional[str] = None
     parent: Optional[str] = None
-    create_parent: bool = False
+    create_parent: bool = True
     reason: str = ""
     instruction: str = ""
     wait: bool = False

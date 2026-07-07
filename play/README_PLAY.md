@@ -516,9 +516,6 @@ SDK 源码在 `sdk/python/`，开发模式下安装：
 # editable 模式（修改 SDK 代码后无需重新安装）
 uv pip install -e sdk/python/
 
-# 或在虚拟环境中
-source .venv/bin/activate
-pip install -e sdk/python/
 ```
 
 验证安装：

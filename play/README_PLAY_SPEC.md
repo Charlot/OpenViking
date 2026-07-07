@@ -339,3 +339,18 @@ client.find("开票", target_uri="viking://user/resources/财务/")
 
 > `trusted` 模式下，OpenViking 只验证 ROOT Key。不管理用户，`account` + `user` 由网关传入做数据分区。
 
+---
+
+## 6. 已知限制
+
+### 6.1 `to` 参数行为不一致
+
+| scope | 不加 `to`（默认） | 加 `to` |
+|------|------|------|
+| `resources` | 自动创建容器目录 `{base}/{doc_name}/` | 放入指定目录 |
+| `user` | 直接放在 `user/{id}/resources/` 根下 | 放入指定子目录 |
+
+`add_resource`（scope=resources）不加 `to` 时会以文件名创建容器目录（如 `simple/simple.md`），这是为多文件资源设计的。`add_user_resource`（scope=user）不加 `to` 时直接放在根下。
+
+**建议**：单文件上传始终传 `to` 明确目录位置，避免容器目录行为不一致。
+

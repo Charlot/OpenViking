@@ -237,7 +237,7 @@ class ResourceProcessor:
                         parent_uri=parent,
                         source_path=parse_result.source_path,
                         source_format=parse_result.source_format,
-                        create_parent=kwargs.get("create_parent", False),
+                        create_parent=kwargs.get("create_parent", True),
                     )
                     if context_tree and context_tree.root:
                         result["root_uri"] = context_tree.root.uri

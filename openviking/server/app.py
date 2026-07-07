@@ -295,10 +295,9 @@ def create_app(
 
                 # Warm ACL cache from AGFS after service is fully initialized.
                 try:
-                    agfs = service.fs._async_agfs
                     from openviking.acl.store import warm_acl_cache
 
-                    acl_count = await warm_acl_cache(agfs)
+                    acl_count = await warm_acl_cache(service._viking_fs)
                     if acl_count > 0:
                         logger.info("ACL cache warmed: %d records loaded", acl_count)
                 except Exception as e:
@@ -438,6 +437,12 @@ def create_app(
     @app.exception_handler(OpenVikingError)
     async def openviking_error_handler(request: Request, exc: OpenVikingError):
         http_status = ERROR_CODE_TO_HTTP_STATUS.get(exc.code, 500)
+        if http_status >= 500:
+            logger.error(
+                "[%s] %s %s — %s",
+                request.method, request.url.path, http_status, exc.message,
+                exc_info=exc,
+            )
         return JSONResponse(
             status_code=http_status,
             content=Response(
