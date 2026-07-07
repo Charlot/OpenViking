@@ -113,6 +113,12 @@ class _NormalizedAddResourceArgs:
     watch_auth_state: Optional[Dict[str, Any]] = None
 
 
+def _looks_like_file_target(uri: str) -> bool:
+    """Return True if uri looks like an exact file target (has a file extension)."""
+    name = uri.rstrip("/").rsplit("/", 1)[-1]
+    return "." in name and not name.startswith(".")
+
+
 class ResourceService:
     """Resource management service."""
 
@@ -873,14 +879,41 @@ class ResourceService:
                     "task_id": task.task_id,
                 }
 
-            # For user scope, pass the user resources root as parent so
-            # process_resource places files under the correct user directory.
+            # Resolve to/parent for process_resource.
+            # - to ending with file extension: exact target (no container dir)
+            # - to ending with / or no extension: parent directory (container created)
             if scope == "user":
                 from openviking.core.namespace import user_space_fragment
 
-                proc_parent = target.parent or f"viking://user/{user_space_fragment(ctx)}/resources"
+                base = f"viking://user/{user_space_fragment(ctx)}/resources"
             else:
-                proc_parent = target.parent
+                base = "viking://resources"
+
+            if target.to and _looks_like_file_target(target.to):
+                # Exact file: extract directory as parent, filename as final name.
+                # tree_builder's is_content_root_uri is too permissive and would
+                # treat any viking://resources/... URI as a parent directory.
+                # Bypass: place the file at the exact URI via mkdir parent + write.
+                to_normalized = target.to.rstrip("/")
+                proc_to = None
+                # Parent is the directory containing the target file
+                parent_dir = to_normalized.rsplit("/", 1)[0]
+                proc_parent = target.parent or parent_dir
+            elif target.to:
+                # Strip base prefix (with or without trailing slash) to get subpath
+                to_normalized = target.to.rstrip("/")
+                base_normalized = base.rstrip("/")
+                if to_normalized == base_normalized:
+                    to_stripped = ""
+                elif to_normalized.startswith(base_normalized + "/"):
+                    to_stripped = to_normalized[len(base_normalized) + 1:]
+                else:
+                    to_stripped = to_normalized
+                proc_parent = f"{base_normalized}/{to_stripped}" if to_stripped else base_normalized
+                proc_to = None
+            else:
+                proc_parent = target.parent or base
+                proc_to = None
 
             result = await self._resource_processor.process_resource(
                 path=path,
@@ -888,7 +921,7 @@ class ResourceService:
                 reason=reason,
                 instruction=instruction,
                 scope=scope,
-                to=target.to if scope != "user" else None,
+                to=proc_to,
                 parent=proc_parent,
                 build_index=build_index,
                 summarize=summarize,

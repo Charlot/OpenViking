@@ -92,7 +92,7 @@ class TreeBuilder:
         parent_uri: Optional[str] = None,
         source_path: Optional[str] = None,
         source_format: Optional[str] = None,
-        create_parent: bool = False,
+        create_parent: bool = True,
     ) -> tuple[str, Optional[str]]:
         """Resolve the final target URI and optional unique-name candidate."""
 
