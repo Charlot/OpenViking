@@ -1,8 +1,8 @@
-import openviking as ov
+from openviking_sdk import SyncHTTPClient
 
 
 def test_ov_client_add_resource(overwrite=False):
-    client = ov.SyncHTTPClient(
+    client = SyncHTTPClient(
         url="http://192.168.198.128:11933",
         api_key="ak-d962b560f65644e3a91b3bb6bf9e5467",
         account="cycloneclaw",
@@ -19,7 +19,7 @@ def test_ov_client_add_resource(overwrite=False):
         # )
         result = client.add_resource(
             path="./data/simple.md",
-            to="viking://resources/folder22/simple.md",
+            to="viking://resources/folder23/simple.md",
             overwrite=overwrite
         )
         root_uri = result["root_uri"]
@@ -48,7 +48,7 @@ def test_ov_client_add_user_resource(overwrite:bool=False):
     """测试 add_user_resource：文件直接到用户空间。"""
     account = "cycloneclaw"
     user = "user-01"
-    client = ov.SyncHTTPClient(
+    client = SyncHTTPClient(
         url="http://192.168.198.128:11933",
         api_key="ak-d962b560f65644e3a91b3bb6bf9e5467",
         account=account,
@@ -90,5 +90,5 @@ def test_ov_client_add_user_resource(overwrite:bool=False):
 
 
 if __name__ == "__main__":
-    # test_ov_client_add_resource(overwrite=True)
-    test_ov_client_add_user_resource(overwrite=True)
+    test_ov_client_add_resource(overwrite=True)
+    # test_ov_client_add_user_resource(overwrite=True)
