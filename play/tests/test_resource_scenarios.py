@@ -6,7 +6,8 @@ from openviking_sdk import SyncHTTPClient
 SERVER = "http://192.168.198.128:11933"
 API_KEY = "ak-d962b560f65644e3a91b3bb6bf9e5467"
 ACCOUNT = "cycloneclaw"
-USER = "user-01"
+# USER = "user-01"
+USER = "3"
 
 # Use absolute path
 TEST_FILE = os.path.join(os.path.dirname(__file__), "data", "simple.md")
@@ -231,25 +232,29 @@ def t_task_polling():
         _cleanup(client, SPACE_URI)
 
 
+def t_read_resource():
+    """读取已有文件内容"""
+    client = _client()
+    try:
+        uri = "viking://user/3/resources/knowledge_spaces/test1/Agent研发工程师面试题/Agent研发工程师面试题.md"
+        content = client.read(uri)
+        print(f"  uri: {uri}")
+        print(f"  length: {len(content)} chars")
+        print(f"  preview: {content[:200]}...")
+        assert len(content) > 0, "Expected non-empty content"
+    finally:
+        client.close()
+
+
 if __name__ == "__main__":
-    tests = [
-        # ("add_resource: exact file to", t_add_exact),
-        # ("add_resource: overwrite no suffix", t_add_overwrite),
-        # ("add_resource: to=dir", t_add_to_dir),
-        # ("add_resource: no to", t_add_no_to),
-        # ("add_user_resource: exact file to", t_user_exact),
-        # ("add_user_resource: overwrite", t_user_overwrite),
-        # ("add_user_resource: to=dir", t_user_to_dir),
-        # ("add_user_resource: no to", t_user_no_to),
-        # ("knowledge space: create + public + upload", t_knowledge_space_create_and_public),
-        ("knowledge space: task polling by task_id", t_task_polling),
-    ]
-
-    ok = 0
-    for name, fn in tests:
-        if run(name, fn):
-            ok += 1
-
-    print(f"\n{'='*60}")
-    print(f"  {ok}/{len(tests)} passed")
-    print(f"{'='*60}")
+    # t_add_exact()
+    # t_add_overwrite()
+    # t_add_to_dir()
+    # t_add_no_to()
+    # t_user_exact()
+    # t_user_overwrite()
+    # t_user_to_dir()
+    # t_user_no_to()
+    # t_knowledge_space_create_and_public()
+    # t_task_polling()
+    t_read_resource()
