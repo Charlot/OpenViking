@@ -466,6 +466,7 @@ const zhCN = {
         fileName: '文件名',
         status: '状态',
         size: '大小',
+        createdAt: '创建时间',
       },
       status: {
         processing: '处理中',

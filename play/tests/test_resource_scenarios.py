@@ -185,6 +185,52 @@ def t_knowledge_space_create_and_public():
         _cleanup(client, SPACE_URI)
 
 
+def t_task_polling():
+    """不 wait → 拿到 task_id → 轮询任务状态
+    
+    task {'task_id': 'fba3fb12-10cb-455b-86a2-e6e88592c68c', 
+    'task_type': 'add_resource', 'status': 'completed',
+      'created_at': 1783575893.259566, 'updated_at': 1783576019.5406158,
+        'resource_id': 'viking://user/user-01/resources/knowledge_spaces/test-space/simple',
+        'stage': 'completed', 
+        'result': {'root_uri': 'viking://user/user-01/resources/knowledge_spaces/test-space/simple', 
+        'queue_status': {'Semantic': {'processed': 1, 'requeue_count': 0, 'error_count': 0, 'errors': []},
+          'Embedding': {'processed': 3, 'requeue_count':0, 'error_count': 0, 'errors': []}}}, 'error': None, 
+          'created_at_iso': '2026-07-09T05:44:53.259566+00:00', 'updated_at_iso': '2026-07-09T05:46:59.540616+00:00'}  
+          
+          status: completed 
+    
+    """
+    client = _client()
+    import time as _time
+
+    try:
+        # 上传不阻塞
+        r = client.add_user_resource(path=TEST_FILE, to=f"{SPACE_URI}/", overwrite=True)
+        task_id = r.get("task_id")
+        print(f"  task_id: {task_id}")
+        assert task_id, "Expected task_id in response"
+
+        # 轮询直到完成
+        for _ in range(300):
+            task = client.get_task(task_id)
+            if task:
+                status = task.get("status")
+                print(f"task {task}  status: {status} ")
+                if status == "completed":
+                    print(f"  root_uri: {task.get('resource_id')}")
+                    break
+                elif status == "failed":
+                    raise AssertionError(f"Task failed: {task.get('error')}")
+            else:
+                print(f"  waiting... (task not found yet)")
+            _time.sleep(2)
+        else:
+            raise AssertionError("Task did not complete within timeout")
+    finally:
+        _cleanup(client, SPACE_URI)
+
+
 if __name__ == "__main__":
     tests = [
         # ("add_resource: exact file to", t_add_exact),
@@ -195,7 +241,8 @@ if __name__ == "__main__":
         # ("add_user_resource: overwrite", t_user_overwrite),
         # ("add_user_resource: to=dir", t_user_to_dir),
         # ("add_user_resource: no to", t_user_no_to),
-        ("knowledge space: create + public + upload", t_knowledge_space_create_and_public),
+        # ("knowledge space: create + public + upload", t_knowledge_space_create_and_public),
+        ("knowledge space: task polling by task_id", t_task_polling),
     ]
 
     ok = 0

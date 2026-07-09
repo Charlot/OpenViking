@@ -478,6 +478,7 @@ const en = {
         fileName: 'File Name',
         status: 'Status',
         size: 'Size',
+        createdAt: 'Created At',
       },
       status: {
         processing: 'Processing',

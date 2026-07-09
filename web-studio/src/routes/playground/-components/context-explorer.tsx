@@ -58,8 +58,6 @@ export function ContextExplorerHeader({
   onToggleHidden?: () => void
 }) {
   const { t } = useTranslation(['playground', 'resources'])
-  const showProcessingTasks = hasTasks || isRefreshingTasks
-
   return (
     <div className="border-b px-3 py-3">
       <div className="flex items-center gap-2">
@@ -69,19 +67,18 @@ export function ContextExplorerHeader({
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold">{t('explorer.title')}</div>
         </div>
-        {showProcessingTasks ? (
-          <Button
-            type="button"
-            size="icon-sm"
-            variant="ghost"
-            className="relative"
-            title={t('processingTasks.title', { ns: 'resources' })}
-            onClick={onOpenProcessingTasks}
-          >
-            <ClipboardListIcon
-              className={cn(
-                'size-4',
-                (hasActiveTasks || isRefreshingTasks) && 'text-primary',
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="ghost"
+          className="relative"
+          title={t('processingTasks.title', { ns: 'resources' })}
+          onClick={onOpenProcessingTasks}
+        >
+          <ClipboardListIcon
+            className={cn(
+              'size-4',
+              (hasActiveTasks || isRefreshingTasks) && 'text-primary',
               )}
             />
             {activeTaskCount > 0 ? (
@@ -90,7 +87,6 @@ export function ContextExplorerHeader({
               </span>
             ) : null}
           </Button>
-        ) : null}
         <Button
           type="button"
           size="icon-sm"
