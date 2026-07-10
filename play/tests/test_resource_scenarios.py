@@ -266,10 +266,9 @@ def t_search_knowledge_space():
 
         tests = [
             ("scoped", "Agent", target),
-            ("viking://resources", "Agent", "viking://resources"),
-            ("parent", "Agent", "viking://user/3/resources"),
-            ("all", "Agent", ""),
-            ("agent/skills", "Agent", "viking://agent/skills"),
+            # ("viking://resources", "Agent", "viking://resources"),
+            # ("parent", "Agent", "viking://user/3/resources"),
+            # ("all", "Agent", ""),
         ]
         for label, query, tgt in tests:
             kwargs = {"query": query, "limit": 10}
@@ -288,6 +287,29 @@ def t_search_knowledge_space():
         client.close()
 
 
+def t_reindex():
+    """重建知识空间索引，清理孤儿向量（需 admin API key）"""
+    client = SyncHTTPClient(url=SERVER, api_key=API_KEY)
+    client.initialize()
+    try:
+        uri = "viking://user/3/resources/knowledge_spaces/test1/Agent研发工程师面试题"
+        result = client.reindex(uri, mode="vectors_only")
+        print(f"  reindex {uri}: {result}")
+    finally:
+        client.close()
+
+
+def t_delete_file():
+    client = _client()
+    try:
+        uri = "viking://user/3/resources/knowledge_spaces/test1/TODO/"
+        # uri = "viking://user/3/resources/knowledge_spaces/test1/Agent研发工程师面试题/Agent研发工程师面试题.md"
+
+        client.rm(uri,recursive=True)
+        print(f"  rm {uri}")
+    finally:
+        client.close()
+
 if __name__ == "__main__":
     # t_add_exact()
     # t_add_overwrite()
@@ -300,4 +322,6 @@ if __name__ == "__main__":
     # t_knowledge_space_create_and_public()
     # t_task_polling()
     # t_read_resource()
-    t_search_knowledge_space()
+    # t_search_knowledge_space()
+    # t_reindex()
+    t_delete_file()

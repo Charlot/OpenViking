@@ -1367,7 +1367,8 @@ class VikingVectorIndexBackend:
         # ACL shared search: items in the user's visible roots OR items
         # marked is_shared=1 by other users in the same account.
         scope_filter = Or([path_filter, Eq("is_shared", 1)])
-        return And([account_filter, scope_filter, Eq("is_search_disabled", 0)])
+        # Exclude records explicitly marked search_disabled=1; treat missing field as not disabled.
+        return And([account_filter, scope_filter, RawDSL({"op": "must_not", "field": "is_search_disabled", "conds": [1]})])
 
     @staticmethod
     def _merge_filters(*filters: Optional[FilterExpr]) -> Optional[FilterExpr]:
