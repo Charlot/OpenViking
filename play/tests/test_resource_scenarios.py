@@ -246,6 +246,48 @@ def t_read_resource():
         client.close()
 
 
+def t_search_knowledge_space():
+    """搜索知识空间 viking://user/3/resources/knowledge_spaces/test1"""
+    client = _client()
+    try:
+        target = "viking://user/3/resources/knowledge_spaces/test1"
+
+        # 1. 先列出知识空间中的文件
+        entries = client.ls(target)
+        print(f"  ls {target}: {len(entries)} entries")
+        for e in entries[:5]:
+            print(f"    {e}")
+
+        # 2. 检查 ACL
+        acl = client.get_acl(target)
+        print(f"  acl: shared={acl.get('shared')}, search_disabled={acl.get('search_disabled')}")
+
+        # ---- 多维度对比搜索 ----
+
+        tests = [
+            ("scoped", "Agent", target),
+            ("viking://resources", "Agent", "viking://resources"),
+            ("parent", "Agent", "viking://user/3/resources"),
+            ("all", "Agent", ""),
+            ("agent/skills", "Agent", "viking://agent/skills"),
+        ]
+        for label, query, tgt in tests:
+            kwargs = {"query": query, "limit": 10}
+            if tgt:
+                kwargs["target_uri"] = tgt
+            r = client.find(**kwargs)
+            resources = r.get("resources", [])
+            memories = r.get("memories", [])
+            skills = r.get("skills", [])
+            print(f"  find('{query}') {label}: total={r.get('total')}, resources={len(resources)}, memories={len(memories)}, skills={len(skills)}")
+            for item in resources[:3]:
+                print(f"    {item['uri']} (score: {item['score']:.4f})")
+
+        assert r.get("total") is not None, "Expected 'total' in find response"
+    finally:
+        client.close()
+
+
 if __name__ == "__main__":
     # t_add_exact()
     # t_add_overwrite()
@@ -257,4 +299,5 @@ if __name__ == "__main__":
     # t_user_no_to()
     # t_knowledge_space_create_and_public()
     # t_task_polling()
-    t_read_resource()
+    # t_read_resource()
+    t_search_knowledge_space()

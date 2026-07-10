@@ -55,6 +55,11 @@ class FSService:
         self._resource_memory_link_service = resource_memory_link_service
         self._watch_scheduler = watch_scheduler
 
+    @property
+    def _async_agfs(self):
+        """Async AGFS client, delegated to VikingFS."""
+        return self._viking_fs._async_agfs
+
     def set_dependencies(
         self,
         viking_fs: VikingFS,
