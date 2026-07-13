@@ -265,22 +265,18 @@ def t_search_knowledge_space():
         # ---- 多维度对比搜索 ----
 
         tests = [
-            ("scoped", "Agent", target),
+            # ("scoped", "Agent", target),
+            ("scoped", "智能体", target),
             # ("viking://resources", "Agent", "viking://resources"),
             # ("parent", "Agent", "viking://user/3/resources"),
             # ("all", "Agent", ""),
         ]
         for label, query, tgt in tests:
-            kwargs = {"query": query, "limit": 10}
+            kwargs = {"query": query, "limit": 10, "context_type":["resource"], "include_content":True}
             if tgt:
                 kwargs["target_uri"] = tgt
             r = client.find(**kwargs)
-            resources = r.get("resources", [])
-            memories = r.get("memories", [])
-            skills = r.get("skills", [])
-            print(f"  find('{query}') {label}: total={r.get('total')}, resources={len(resources)}, memories={len(memories)}, skills={len(skills)}")
-            for item in resources[:3]:
-                print(f"    {item['uri']} (score: {item['score']:.4f})")
+            print(f"  find('{query}') {label}: total={r.get('total')}, reponse: {r}")
 
         assert r.get("total") is not None, "Expected 'total' in find response"
     finally:
@@ -302,11 +298,14 @@ def t_reindex():
 def t_delete_file():
     client = _client()
     try:
-        uri = "viking://user/3/resources/knowledge_spaces/test1/TODO/"
+        # uri = "viking://user/3/resources/knowledge_spaces/test1/Agent研发工程师面试题/"
         # uri = "viking://user/3/resources/knowledge_spaces/test1/Agent研发工程师面试题/Agent研发工程师面试题.md"
+        # uri = "viking://user/3/resources/knowledge_spaces/test1/Agent研发工程师面试题/tmpzzg7vbnd.md"
 
-        client.rm(uri,recursive=True)
-        print(f"  rm {uri}")
+        for i in range(30):
+            uri = f"viking://resources/simple_{i}"
+            client.rm(uri,recursive=True)
+            print(f"  rm {uri}")
     finally:
         client.close()
 

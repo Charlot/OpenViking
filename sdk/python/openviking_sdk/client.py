@@ -945,6 +945,14 @@ class AsyncHTTPClient:
         )
         return self._handle_response_data(response).get("result", {})
 
+    @staticmethod
+    def _strip_content(result: Dict[str, Any]) -> Dict[str, Any]:
+        """Remove 'content' field from result items when include_content=False."""
+        for key in ("resources", "memories", "skills"):
+            for item in result.get(key, []):
+                item.pop("content", None)
+        return result
+
     async def find(
         self,
         query: str,
@@ -956,6 +964,7 @@ class AsyncHTTPClient:
         context_type: Optional[Any] = None,
         tags: Optional[List[str]] = None,
         telemetry: Any = False,
+        include_content: bool = False,
     ) -> Dict[str, Any]:
         actual_limit = node_limit if node_limit is not None else limit
         payload = {
@@ -970,7 +979,10 @@ class AsyncHTTPClient:
         }
         payload = self._compact_request_body(payload)
         response = await self._http.post("/api/v1/search/find", json=payload)
-        return self._handle_response_data(response).get("result", {})
+        result = self._handle_response_data(response).get("result", {})
+        if not include_content:
+            self._strip_content(result)
+        return result
 
     # ── ACL ──
 
@@ -1024,6 +1036,7 @@ class AsyncHTTPClient:
         context_type: Optional[Any] = None,
         tags: Optional[List[str]] = None,
         telemetry: Any = False,
+        include_content: bool = False,
     ) -> Dict[str, Any]:
         actual_limit = node_limit if node_limit is not None else limit
         sid = session_id or (session.session_id if session else None)
@@ -1040,7 +1053,10 @@ class AsyncHTTPClient:
         }
         payload = self._compact_request_body(payload)
         response = await self._http.post("/api/v1/search/search", json=payload)
-        return self._handle_response_data(response).get("result", {})
+        result = self._handle_response_data(response).get("result", {})
+        if not include_content:
+            self._strip_content(result)
+        return result
 
     async def grep(
         self,
@@ -1936,6 +1952,7 @@ class SyncHTTPClient:
         context_type: Optional[Any] = None,
         tags: Optional[List[str]] = None,
         telemetry: Any = False,
+        include_content: bool = False,
     ) -> Dict[str, Any]:
         return run_async(
             self._async_client.find(
@@ -1948,6 +1965,7 @@ class SyncHTTPClient:
                 context_type=context_type,
                 tags=tags,
                 telemetry=telemetry,
+                include_content=include_content,
             )
         )
 
@@ -1964,6 +1982,7 @@ class SyncHTTPClient:
         context_type: Optional[Any] = None,
         tags: Optional[List[str]] = None,
         telemetry: Any = False,
+        include_content: bool = False,
     ) -> Dict[str, Any]:
         actual_session_id = session_id
         if actual_session_id is None and session is not None:
@@ -1980,6 +1999,7 @@ class SyncHTTPClient:
                 context_type=context_type,
                 tags=tags,
                 telemetry=telemetry,
+                include_content=include_content,
             )
         )
 

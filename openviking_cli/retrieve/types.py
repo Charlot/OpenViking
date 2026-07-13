@@ -286,6 +286,7 @@ class MatchedContext:
     level: int = 2
     abstract: str = ""
     overview: Optional[str] = None
+    content: Optional[str] = None
     category: str = ""
     score: float = 0.0
     match_reason: str = ""
@@ -372,7 +373,7 @@ class FindResult:
 
     def _context_to_dict(self, ctx: MatchedContext) -> Dict[str, Any]:
         """Convert MatchedContext to dict."""
-        return {
+        result = {
             "context_type": ctx.context_type.value,
             "uri": ctx.uri,
             "level": ctx.level,
@@ -383,6 +384,9 @@ class FindResult:
             "abstract": ctx.abstract,
             "overview": ctx.overview,
         }
+        if ctx.content is not None:
+            result["content"] = ctx.content
+        return result
 
     def _query_to_dict(self, q: TypedQuery) -> Dict[str, Any]:
         """Convert TypedQuery to dict."""

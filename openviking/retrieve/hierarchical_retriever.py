@@ -114,6 +114,8 @@ class HierarchicalRetriever:
         t0 = time.monotonic()
         telemetry = get_current_telemetry()
         effective_threshold = self._resolve_threshold(score_threshold)
+        if level is None:
+            level = [2]
         if mode is None:
             mode = RetrieverMode.QUICK if not self._rerank_client else RetrieverMode.THINKING
 
@@ -568,6 +570,7 @@ class HierarchicalRetriever:
                     else ContextType.RESOURCE,
                     level=level,
                     abstract=c.get("abstract", ""),
+                    content=c.get("content"),
                     category=c.get("category", ""),
                     score=final_score,
                     relations=relations,

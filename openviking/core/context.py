@@ -84,11 +84,13 @@ class Context:
         owner_user_id: Optional[str] = None,
         owner_space: Optional[str] = None,
         id: Optional[str] = None,
+        content: Optional[str] = None,
     ):
         """
         Initialize a Context object.
         """
         self.id = id or str(uuid4())
+        self.content = content
         self.uri = uri
         self.parent_uri = parent_uri
         self.temp_uri = temp_uri
@@ -191,6 +193,9 @@ class Context:
         }
         if self.level is not None:
             data["level"] = int(self.level)
+
+        if self.content is not None:
+            data["content"] = self.content
 
         if self.user:
             data["user"] = self.user.to_dict()
