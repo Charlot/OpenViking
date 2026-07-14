@@ -76,11 +76,35 @@ async def read(
     offset: int = Query(0, description="Starting line number (0-indexed)"),
     limit: int = Query(-1, description="Number of lines to read, -1 means read to end"),
     raw: bool = Query(False, description="Return raw stored content without memory-field cleanup"),
+    fallback_to_abstract: bool = Query(
+        False, description="Fall back to vector store abstract for binary/media files"
+    ),
     _ctx: RequestContext = Depends(get_request_context),
 ):
     """Read file content (L2)."""
     service = get_service()
     uri = resolve_path_variables(uri)
+
+    _BINARY_EXTS = {
+        ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg", ".webp",  # images
+        ".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv", ".wmv",   # video
+        ".mp3", ".wav", ".ogg", ".flac", ".aac", ".m4a",           # audio
+    }
+    if fallback_to_abstract and any(uri.lower().endswith(ext) for ext in _BINARY_EXTS):
+        # Image/media file: return vector store description
+        try:
+            result = await service.search.find(
+                query=".", ctx=_ctx, target_uri=uri,
+                limit=1, score_threshold=-1.0,
+            )
+            for r in result.resources:
+                text = getattr(r, 'content', None) or getattr(r, 'abstract', None) or ''
+                if text:
+                    return Response(status='ok', result=text)
+        except Exception:
+            pass
+        return Response(status='ok', result='')
+
     try:
         result = await service.fs.read(uri, ctx=_ctx, offset=offset, limit=limit)
     except AGFSNotFoundError:

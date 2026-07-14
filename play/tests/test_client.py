@@ -44,6 +44,34 @@ def test_ov_client_add_resource(overwrite=False):
         client.close()
 
 
+def test_ov_client_add_resource_pdf(overwrite=False):
+    client = SyncHTTPClient(
+        url="http://192.168.198.128:11933",
+        api_key="ak-d962b560f65644e3a91b3bb6bf9e5467",
+        account="cycloneclaw",
+        user="test-01",
+    )
+
+
+    try:
+        client.initialize()
+
+        # Add a resource
+        result = client.add_resource(
+            "./data/test-pdf.pdf",
+            # to="viking://resources/folder23/test-pdf.pdf",
+            parent="viking://resources/folder1",
+            source_name="test-pdf.pdf",
+            overwrite=overwrite
+        )
+        print('result', result)
+
+
+
+    finally:
+        client.close()
+
+
 def test_ov_client_add_user_resource(overwrite:bool=False):
     """测试 add_user_resource：文件直接到用户空间。"""
     account = "cycloneclaw"
@@ -90,5 +118,7 @@ def test_ov_client_add_user_resource(overwrite:bool=False):
 
 
 if __name__ == "__main__":
-    test_ov_client_add_resource(overwrite=True)
+    # test_ov_client_add_resource(overwrite=True)
+    test_ov_client_add_resource_pdf(overwrite=True)
+
     # test_ov_client_add_user_resource(overwrite=True)

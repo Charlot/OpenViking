@@ -246,6 +246,20 @@ def t_read_resource():
         client.close()
 
 
+def t_read_png_resource():
+    """读取已有文件内容"""
+    client = _client()
+    try:
+        uri = "viking://resources/新员工公司指南/page12_img3.png"
+        content = client.read(uri,fallback_to_abstract=True)
+        print(f"  uri: {uri}")
+        print(f"  length: {len(content)} chars")
+        print(f"  content: {content}")
+        assert len(content) > 0, "Expected non-empty content"
+    finally:
+        client.close()
+
+
 def t_search_knowledge_space():
     """搜索知识空间 viking://user/3/resources/knowledge_spaces/test1"""
     client = _client()
@@ -266,17 +280,20 @@ def t_search_knowledge_space():
 
         tests = [
             # ("scoped", "Agent", target),
-            ("scoped", "智能体", target),
+            # ("scoped", "智能体", target),
+            ("viking://resources", "差旅制度", "viking://resources"),
             # ("viking://resources", "Agent", "viking://resources"),
             # ("parent", "Agent", "viking://user/3/resources"),
             # ("all", "Agent", ""),
         ]
         for label, query, tgt in tests:
-            kwargs = {"query": query, "limit": 10, "context_type":["resource"], "include_content":True}
+            kwargs = {"query": query, "limit": 10, "context_type":["resource"], "include_content":False}
             if tgt:
                 kwargs["target_uri"] = tgt
-            r = client.find(**kwargs)
-            print(f"  find('{query}') {label}: total={r.get('total')}, reponse: {r}")
+            r = client.search(**kwargs)
+            print(f" ---> find('{query}') {label}: total={r.get('total')} response: {r}")
+            # for resource in r.get("resources"):
+            #     print(f"------------------->  {resource['uri']} score: {resource['score']} content: {resource['content'][:100]}")
 
         assert r.get("total") is not None, "Expected 'total' in find response"
     finally:
@@ -303,7 +320,7 @@ def t_delete_file():
         # uri = "viking://user/3/resources/knowledge_spaces/test1/Agent研发工程师面试题/tmpzzg7vbnd.md"
 
         for i in range(30):
-            uri = f"viking://resources/simple_{i}"
+            uri = f"viking://resources/新员工公司指南_{i}"
             client.rm(uri,recursive=True)
             print(f"  rm {uri}")
     finally:
@@ -321,6 +338,7 @@ if __name__ == "__main__":
     # t_knowledge_space_create_and_public()
     # t_task_polling()
     # t_read_resource()
+    t_read_png_resource()
     # t_search_knowledge_space()
     # t_reindex()
-    t_delete_file()
+    # t_delete_file()

@@ -423,6 +423,7 @@ class AsyncHTTPClient:
         overwrite: bool = False,
         args: Optional[Dict[str, Any]] = None,
         telemetry: Any = False,
+        source_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         if to and parent:
             raise ValueError("Cannot specify both 'to' and 'parent' at the same time.")
@@ -448,20 +449,25 @@ class AsyncHTTPClient:
             request_data["preserve_structure"] = preserve_structure
 
         path_obj = Path(path)
+        resolved_source_name = source_name
         if path_obj.exists():
+            if not resolved_source_name:
+                resolved_source_name = path_obj.name
             if path_obj.is_dir():
-                request_data["source_name"] = path_obj.name
+                request_data["source_name"] = resolved_source_name
                 zip_path = self._zip_directory(path)
                 try:
                     request_data["temp_file_id"] = await self._upload_temp_file(zip_path)
                 finally:
                     Path(zip_path).unlink(missing_ok=True)
             elif path_obj.is_file():
-                request_data["source_name"] = path_obj.name
+                request_data["source_name"] = resolved_source_name
                 request_data["temp_file_id"] = await self._upload_temp_file(path)
             else:
                 request_data["path"] = path
         else:
+            if source_name:
+                request_data["source_name"] = source_name
             request_data["path"] = path
 
         request_data = self._compact_request_body(request_data)
@@ -481,6 +487,7 @@ class AsyncHTTPClient:
         overwrite: bool = False,
         telemetry: Any = False,
         args: Optional[Dict[str, Any]] = None,
+        source_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Add resource to the current user's space.
 
@@ -490,8 +497,10 @@ class AsyncHTTPClient:
         Args:
             overwrite: If True, overwrite existing file at target URI
                 instead of auto-incrementing suffix (``_1``, ``_2``).
+            source_name: Explicit display name for the resource (default: filename).
         """
         path_obj = Path(path)
+        resolved_source_name = source_name
         request_data: Dict[str, Any] = {
             "wait": wait,
             "timeout": timeout,
@@ -508,6 +517,8 @@ class AsyncHTTPClient:
         if args is not None:
             request_data["args"] = args
         if path_obj.exists():
+            if not resolved_source_name:
+                resolved_source_name = path_obj.name
             if path_obj.is_dir():
                 import tempfile
                 import zipfile
@@ -519,17 +530,19 @@ class AsyncHTTPClient:
                         for f in path_obj.rglob("*"):
                             if f.is_file():
                                 zf.write(f, f.relative_to(path_obj))
-                    request_data["source_name"] = path_obj.name
+                    request_data["source_name"] = resolved_source_name
                     request_data["temp_file_id"] = await self._upload_temp_file(zip_path)
                 finally:
                     if zip_path:
                         Path(zip_path).unlink(missing_ok=True)
             elif path_obj.is_file():
-                request_data["source_name"] = path_obj.name
+                request_data["source_name"] = resolved_source_name
                 request_data["temp_file_id"] = await self._upload_temp_file(path)
             else:
                 request_data["path"] = path
         else:
+            if source_name:
+                request_data["source_name"] = source_name
             request_data["path"] = path
 
         request_data = self._compact_request_body(request_data)
@@ -884,11 +897,15 @@ class AsyncHTTPClient:
         )
         self._handle_response(response)
 
-    async def read(self, uri: str, offset: int = 0, limit: int = -1) -> str:
-        response = await self._http.get(
-            "/api/v1/content/read",
-            params={"uri": VikingURI.normalize(uri), "offset": offset, "limit": limit},
-        )
+    async def read(
+        self, uri: str, offset: int = 0, limit: int = -1, fallback_to_abstract: bool = False
+    ) -> str:
+        params: Dict[str, Any] = {
+            "uri": VikingURI.normalize(uri), "offset": offset, "limit": limit
+        }
+        if fallback_to_abstract:
+            params["fallback_to_abstract"] = True
+        response = await self._http.get("/api/v1/content/read", params=params)
         return self._handle_response(response)
 
     async def abstract(self, uri: str) -> str:
@@ -1599,6 +1616,7 @@ class SyncHTTPClient:
         overwrite: bool = False,
         args: Optional[Dict[str, Any]] = None,
         telemetry: Any = False,
+        source_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         return run_async(
             self._async_client.add_resource(
@@ -1619,6 +1637,7 @@ class SyncHTTPClient:
                 watch_interval=watch_interval,
                 args=args,
                 telemetry=telemetry,
+                source_name=source_name,
             )
         )
 
@@ -1635,6 +1654,7 @@ class SyncHTTPClient:
         overwrite: bool = False,
         args: Optional[Dict[str, Any]] = None,
         telemetry: Any = False,
+        source_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Add resource to the current user's space. (sync wrapper)"""
         return run_async(
@@ -1650,6 +1670,7 @@ class SyncHTTPClient:
                 overwrite=overwrite,
                 args=args,
                 telemetry=telemetry,
+                source_name=source_name,
             )
         )
 
@@ -1894,8 +1915,14 @@ class SyncHTTPClient:
     def mv(self, from_uri: str, to_uri: str) -> None:
         run_async(self._async_client.mv(from_uri, to_uri))
 
-    def read(self, uri: str, offset: int = 0, limit: int = -1) -> str:
-        return run_async(self._async_client.read(uri, offset=offset, limit=limit))
+    def read(
+        self, uri: str, offset: int = 0, limit: int = -1, fallback_to_abstract: bool = False
+    ) -> str:
+        return run_async(
+            self._async_client.read(
+                uri, offset=offset, limit=limit, fallback_to_abstract=fallback_to_abstract
+            )
+        )
 
     def abstract(self, uri: str) -> str:
         return run_async(self._async_client.abstract(uri))

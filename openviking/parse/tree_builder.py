@@ -115,6 +115,7 @@ class TreeBuilder:
 
         auto_base_uri = self._get_base_uri(scope, source_path, source_format)
         effective_parent_uri = parent_uri or effective_to_uri
+        base_uri = auto_base_uri
         if effective_parent_uri:
             effective_parent_uri = effective_parent_uri.rstrip("/")
         if effective_parent_uri:
