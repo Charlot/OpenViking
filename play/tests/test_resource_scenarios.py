@@ -280,18 +280,22 @@ def t_search_knowledge_space():
 
         tests = [
             # ("scoped", "Agent", target),
-            # ("scoped", "智能体", target),
-            ("viking://resources", "差旅制度", "viking://resources"),
+            # ("scoped", "报销", target),
+            ("viking://user/3/resources/knowledge_spaces/test1", "报销制度 费用报销 报销政策", "viking://user/3/resources/knowledge_spaces/test1"),
+            # ("viking://resources", "报销", ["viking://resources"]),
+             ("viking://resources", "报销制度 费用报销 报销政策", "viking://resources")
             # ("viking://resources", "Agent", "viking://resources"),
             # ("parent", "Agent", "viking://user/3/resources"),
             # ("all", "Agent", ""),
         ]
+        import json
         for label, query, tgt in tests:
-            kwargs = {"query": query, "limit": 10, "context_type":["resource"], "include_content":False}
+            kwargs = {"query": query, "limit": 20, "context_type":["resource"], "include_content":False}
             if tgt:
                 kwargs["target_uri"] = tgt
             r = client.search(**kwargs)
-            print(f" ---> find('{query}') {label}: total={r.get('total')} response: {r}")
+
+            print(f" ---> find('{query}') {label}: total={r.get('total')} response: {json.dumps(r,ensure_ascii=False, indent=2)}")
             # for resource in r.get("resources"):
             #     print(f"------------------->  {resource['uri']} score: {resource['score']} content: {resource['content'][:100]}")
 
@@ -317,10 +321,10 @@ def t_delete_file():
     try:
         # uri = "viking://user/3/resources/knowledge_spaces/test1/Agent研发工程师面试题/"
         # uri = "viking://user/3/resources/knowledge_spaces/test1/Agent研发工程师面试题/Agent研发工程师面试题.md"
-        # uri = "viking://user/3/resources/knowledge_spaces/test1/Agent研发工程师面试题/tmpzzg7vbnd.md"
+        uri = "viking://user/3/resources/knowledge_spaces/test1/AI_Overview"
 
         for i in range(30):
-            uri = f"viking://resources/新员工公司指南_{i}"
+            # uri = f"viking://resources/simple"
             client.rm(uri,recursive=True)
             print(f"  rm {uri}")
     finally:
@@ -338,7 +342,7 @@ if __name__ == "__main__":
     # t_knowledge_space_create_and_public()
     # t_task_polling()
     # t_read_resource()
-    t_read_png_resource()
-    # t_search_knowledge_space()
+    # t_read_png_resource()
+    t_search_knowledge_space()
     # t_reindex()
     # t_delete_file()
