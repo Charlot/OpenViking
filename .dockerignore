@@ -38,4 +38,7 @@ playground
 sdk
 tests
 web-studio/dist
+# 本地预构建的前端产物：必须排除，否则 setup.py 会跳过 web-studio 重新构建，
+# 把过期的 dist 打进镜像
+openviking/web_studio/dist
 npm

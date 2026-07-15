@@ -22,11 +22,24 @@ RUN ln -sf ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
 ENV CARGO_HOME=/usr/local/cargo
 ENV RUSTUP_HOME=/usr/local/rustup
 ENV PATH="/app/.venv/bin:/usr/local/cargo/bin:${PATH}"
+# Rust crates 走 rsproxy.cn（字节跳动 crates.io 国内镜像，支持 sparse 索引）
+RUN cat > "$CARGO_HOME/config.toml" <<'EOF'
+[source.crates-io]
+replace-with = 'rsproxy-sparse'
+
+[source.rsproxy-sparse]
+registry = "sparse+https://rsproxy.cn/index/"
+
+[registries.rsproxy]
+index = "https://rsproxy.cn/crates.io-index"
+EOF
 ARG OPENVIKING_VERSION=
 ARG TARGETPLATFORM
 ARG UV_LOCK_STRATEGY=auto
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# apt 走阿里云 Debian 镜像
+RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources \
+ && apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     ccache \
     cmake \
@@ -45,6 +58,13 @@ ENV CARGO_TARGET_DIR=/cargo-target
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 ENV UV_NO_DEV=1
+# 使用阿里云 PyPI 镜像加速 Python 包下载
+ENV PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
+ENV PIP_TRUSTED_HOST=mirrors.aliyun.com
+ENV UV_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
+ENV UV_TRUSTED_HOST=mirrors.aliyun.com
+# npm 走 npmmirror（web-studio 前端构建时 npm ci 用）
+ENV npm_config_registry=https://registry.npmmirror.com
 WORKDIR /app
 
 # Copy source required for setup.py artifact builds and native extension build.
@@ -97,7 +117,9 @@ RUN --mount=type=cache,target=/root/.cache/uv,id=uv-${TARGETPLATFORM} \
 # Stage 3: runtime
 FROM 10.86.20.10/library/python:3.13-slim-trixie
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# apt 走阿里云 Debian 镜像
+RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources \
+ && apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     git \
@@ -117,9 +139,6 @@ ENV HOME="/app" \
     OPENVIKING_CLI_CONFIG_FILE="/app/.openviking/ovcli.conf"
 
 EXPOSE 1933
-
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD curl -fsS http://127.0.0.1:1933/health || exit 1
 
 # All persistent state (ov.conf, ovcli.conf, workspace data) lives under
 # /app/.openviking, which mirrors the host's ~/.openviking layout. Mount one
