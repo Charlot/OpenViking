@@ -1,0 +1,29 @@
+# OpenViking 本地测试部署（配合 cyclone/build-docker-image.sh 构建的镜像）
+#
+# 用法:
+#   cyclone/build-docker-image.sh          # 先构建 cyclone-openviking:test
+#   cd cyclone && docker compose up -d     # 启动
+#
+# 数据/配置持久化在 ./openviking-data（对应容器内 /app/.openviking）。
+# 首次启动若无 ov.conf，容器会以 503 pending 状态等待，可任选其一：
+#   - 预先放置 ./openviking-data/ov.conf
+#   - 设置环境变量 OPENVIKING_CONF_CONTENT 为完整的 ov.conf JSON
+#   - docker exec -it cyclone-openviking openviking-server init
+
+services:
+  cyclone_openviking:
+    image: 10.86.20.10/library/cyclone-openviking:test
+    container_name: cyclone-openviking
+    ports:
+      - "1933:1933"
+    volumes:
+      - ./openviking-data:/app/.openviking
+    environment:
+      OPENVIKING_CONF_CONTENT: ${OPENVIKING_CONF_CONTENT:-}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:1933/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped

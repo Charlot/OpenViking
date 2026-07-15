@@ -1,0 +1,41 @@
+# Keep the Docker build context small: the Dockerfile only COPYs
+# Cargo.toml/Cargo.lock, pyproject.toml/uv.lock/setup.py/README.md,
+# build_support/, bot/, crates/, openviking/, openviking_cli/, src/,
+# third_party/, web-studio/ and docker/.
+
+# VCS
+.git
+.github
+
+# Build artifacts
+target
+**/target
+build
+dist
+*.egg-info
+src/cmake_build
+src/build
+**/__pycache__
+**/*.pyc
+
+# Node
+**/node_modules
+
+# Local state / data
+data
+.pytest_cache
+.coverage
+htmlcov
+.venv
+
+# Non-build directories
+benchmark
+deploy
+docs
+examples
+play
+playground
+sdk
+tests
+web-studio/dist
+npm
