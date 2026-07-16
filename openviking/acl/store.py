@@ -82,10 +82,15 @@ async def get_acl_async(agfs, uri: str) -> Optional[Dict[str, Any]]:
     return await _read_acl_from_agfs(agfs, acl_path)
 
 
-async def set_acl_async(agfs, uri: str, acl: Dict[str, Any]) -> None:
-    """Write ACL for a specific URI."""
+async def set_acl_async(fs, uri: str, acl: Dict[str, Any]) -> None:
+    """Write ACL for a specific URI. Creates parent directories via VikingFS if needed."""
+    # Ensure the directory exists via VikingFS (handles URI→AGFS path + mount)
+    try:
+        await fs.mkdir(uri)
+    except Exception:
+        pass
     acl_path = f"{uri.rstrip('/')}/{ACL_FILENAME}"
-    await _write_acl_to_agfs(agfs, acl_path, acl)
+    await _write_acl_to_agfs(fs._async_agfs, acl_path, acl)
 
 
 async def delete_acl_async(agfs, uri: str) -> None:

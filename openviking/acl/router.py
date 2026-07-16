@@ -139,8 +139,6 @@ async def acl_set(
             },
         ).model_dump(exclude_none=True)
 
-    agfs = service.fs._async_agfs   # Direct AGFS access for store operations
-
     # State validation: search_disabled takes precedence.
     # When search_disabled is true, shared is forced to false
     # (the file is removed from search, only owner can access).
@@ -155,7 +153,7 @@ async def acl_set(
         "search_disabled": effective_search_disabled,
     }
 
-    await set_acl_async(agfs, uri, acl)
+    await set_acl_async(service.fs, uri, acl)
 
     # Update synchronous cache for the namespace hook.
     cache_acl(uri, acl)

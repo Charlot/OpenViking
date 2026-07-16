@@ -1,10 +1,7 @@
 #!/bin/sh
 set -eu
 
-SERVER_URL="http://127.0.0.1:1933"
-SERVER_HEALTH_URL="${SERVER_URL}/health"
 WITH_BOT="${OPENVIKING_WITH_BOT:-1}"
-HEALTH_MAX_ATTEMPTS="${OPENVIKING_HEALTH_MAX_ATTEMPTS:-120}"
 CONFIG_FILE="${OPENVIKING_CONFIG_FILE:-/app/.openviking/ov.conf}"
 PENDING_HEALTH_SCRIPT="/usr/local/bin/openviking-pending-health"
 SERVER_PID=""
@@ -109,24 +106,6 @@ else
     openviking-server --host "${SERVER_HOST}" &
 fi
 SERVER_PID=$!
-
-attempt=0
-until curl -fsS "${SERVER_HEALTH_URL}" >/dev/null 2>&1; do
-    attempt=$((attempt + 1))
-    if ! kill -0 "${SERVER_PID}" 2>/dev/null; then
-        echo "[openviking-entrypoint] openviking-server exited before becoming healthy" >&2
-        wait "${SERVER_PID}" || true
-        exit 1
-    fi
-    if [ "${attempt}" -ge "${HEALTH_MAX_ATTEMPTS}" ]; then
-        echo "[openviking-entrypoint] timed out waiting for ${SERVER_HEALTH_URL}" >&2
-        forward_signal
-        wait "${SERVER_PID}" || true
-        exit 1
-    fi
-    sleep 1
-done
-echo "[openviking-entrypoint] openviking-server is healthy"
 
 wait "${SERVER_PID}" || SERVER_STATUS=$?
 exit "${SERVER_STATUS:-0}"

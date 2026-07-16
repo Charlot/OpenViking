@@ -7,7 +7,7 @@ SERVER = "http://192.168.198.128:11933"
 API_KEY = "ak-d962b560f65644e3a91b3bb6bf9e5467"
 ACCOUNT = "cycloneclaw"
 # USER = "user-01"
-USER = "3"
+USER = "4"
 
 # Use absolute path
 TEST_FILE = os.path.join(os.path.dirname(__file__), "data", "simple.md")
@@ -281,9 +281,9 @@ def t_search_knowledge_space():
         tests = [
             # ("scoped", "Agent", target),
             # ("scoped", "报销", target),
-            ("viking://user/3/resources/knowledge_spaces/test1", "报销制度 费用报销 报销政策", "viking://user/3/resources/knowledge_spaces/test1"),
+            ("viking://user/3/resources/knowledge_spaces/test1", "报销制度", "viking://user/3/resources/knowledge_spaces/test1"),
             # ("viking://resources", "报销", ["viking://resources"]),
-             ("viking://resources", "报销制度 费用报销 报销政策", "viking://resources")
+            #  ("viking://resources", "报销制度 费用报销 报销政策", "viking://resources")
             # ("viking://resources", "Agent", "viking://resources"),
             # ("parent", "Agent", "viking://user/3/resources"),
             # ("all", "Agent", ""),

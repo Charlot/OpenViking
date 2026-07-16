@@ -1,5 +1,9 @@
 # OpenViking 外部 Agent 系统集成协议
 
+> **注意：ACL 权限模块已禁用。** 搜索、读取、目录访问的权限控制由上层产品（agentbot/cycloneclaw）负责。
+> OpenViking 仅保留基础的 namespace scope 隔离（`user/{id}/` → owner 校验）。
+> ACL 相关功能（shared、search_disabled）标记为未来功能，待上层权限模型稳定后再启用。
+
 ## 1. 集成方式
 
 ### 方式 A：MCP（推荐）
@@ -88,7 +92,10 @@ curl -X POST "http://host:11933/api/v1/content/write" \
 
 ---
 
-## 2. 共享搜索需求与设计 `[新设计]`
+## 2. 共享搜索与 ACL `[未来功能]`
+
+> **此功能已禁用，由上层控制权限。** 搜索 filter 不再包含 `is_shared`/`is_search_disabled` 条件，
+> namespace 访问检查不再调用 `resolve_acl_access()`。以下设计保留作为未来参考。
 
 ### 2.1 需求场景
 

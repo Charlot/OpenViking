@@ -1364,12 +1364,13 @@ class VikingVectorIndexBackend:
             return None
 
         account_filter = Eq("account_id", ctx.account_id)
-        path_filter = Or([PathScope("uri", root, depth=-1) for root in visible_roots(ctx)])
-        # ACL shared search: items in the user's visible roots OR items
-        # marked is_shared=1 by other users in the same account.
-        scope_filter = Or([path_filter, Eq("is_shared", 1)])
-        # Exclude records explicitly marked search_disabled=1; treat missing field as not disabled.
-        return And([account_filter, scope_filter, RawDSL({"op": "must_not", "field": "is_search_disabled", "conds": [1]})])
+        # ACL disabled: upper layer controls access; search across all user data
+        # Original scope: Or([PathScope("uri", root, depth=-1) for root in visible_roots(ctx)])
+        # scope_filter = Or([path_filter, Eq("is_shared", 1)])
+        # With ACL disabled, allow cross-user search by widening path filter
+        all_roots = list(set(visible_roots(ctx) + ["viking://user/"]))
+        path_filter = Or([PathScope("uri", root, depth=-1) for root in all_roots])
+        return And([account_filter, path_filter])
 
     @staticmethod
     def _merge_filters(*filters: Optional[FilterExpr]) -> Optional[FilterExpr]:
