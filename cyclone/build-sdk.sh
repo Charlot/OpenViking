@@ -9,7 +9,7 @@ SDK_DIR="$PROJECT_DIR/sdk/python"
 DIST_DIR="$PROJECT_DIR/cyclone/sdk-dist"
 
 cd "$SDK_DIR"
-uv build --wheel --out "$DIST_DIR"
+uv build --wheel --out-dir "$DIST_DIR"
 
 echo "==> 产物:"
 ls -lh "$DIST_DIR"/cyclone_openviking_sdk-*.whl
