@@ -908,6 +908,20 @@ class AsyncHTTPClient:
         response = await self._http.get("/api/v1/content/read", params=params)
         return self._handle_response(response)
 
+    async def download(self, uri: str) -> bytes:
+        """Download raw file bytes (for images, binaries, etc.)."""
+        response = await self._http.get(
+            "/api/v1/content/download",
+            params={"uri": VikingURI.normalize(uri)},
+        )
+        if response.status_code >= 400:
+            self._raise_exception(
+                self._handle_response_data(response).get("error", {})
+                if "application/json" in (response.headers.get("content-type") or "")
+                else {"code": "INTERNAL", "message": f"HTTP {response.status_code}"}
+            )
+        return response.content
+
     async def abstract(self, uri: str) -> str:
         response = await self._http.get(
             "/api/v1/content/abstract", params={"uri": VikingURI.normalize(uri)}
@@ -1923,6 +1937,10 @@ class SyncHTTPClient:
                 uri, offset=offset, limit=limit, fallback_to_abstract=fallback_to_abstract
             )
         )
+
+    def download(self, uri: str) -> bytes:
+        """Download raw file bytes (for images, binaries, etc.)."""
+        return run_async(self._async_client.download(uri))
 
     def abstract(self, uri: str) -> str:
         return run_async(self._async_client.abstract(uri))

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Eye, EyeOff, Globe, Lock, Loader2 } from 'lucide-react'
 
 import { Button } from '#/components/ui/button'
+import { ovClient } from '#/lib/ov-client'
 import { cn } from '#/lib/utils'
 
 import { normalizeFileUri, normalizeDirUri } from '../../resources/-lib/normalize'
@@ -22,13 +23,10 @@ interface AclPanelProps {
 /** Fetch current ACL state for a URI. */
 async function fetchAcl(uri: string): Promise<AclState> {
   const normalized = uri.endsWith('/') ? normalizeDirUri(uri) : normalizeFileUri(uri)
-  const params = new URLSearchParams({ uri: normalized })
-  const resp = await fetch(`/api/v1/acl/get?${params.toString()}`)
-  if (!resp.ok) {
-    throw new Error(`ACL fetch failed: ${resp.status}`)
-  }
-  const data = await resp.json()
-  return (data.result || { shared: false, search_disabled: false }) as AclState
+  const resp = await ovClient.instance.get('/api/v1/acl/get', {
+    params: { uri: normalized },
+  })
+  return (resp.data.result || { shared: false, search_disabled: false }) as AclState
 }
 
 /** Update ACL state for a URI. */
@@ -38,18 +36,11 @@ async function updateAcl(
   searchDisabled: boolean,
 ): Promise<void> {
   const normalized = uri.endsWith('/') ? normalizeDirUri(uri) : normalizeFileUri(uri)
-  const resp = await fetch('/api/v1/acl/set', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      uri: normalized,
-      shared,
-      search_disabled: searchDisabled,
-    }),
+  await ovClient.instance.put('/api/v1/acl/set', {
+    uri: normalized,
+    shared,
+    search_disabled: searchDisabled,
   })
-  if (!resp.ok) {
-    throw new Error(`ACL update failed: ${resp.status}`)
-  }
 }
 
 export function AclPanel({ uri, isDir, className }: AclPanelProps) {
