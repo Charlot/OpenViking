@@ -1341,6 +1341,11 @@ class MarkdownParser(BaseParser):
             logger.debug(f"[MarkdownParser] Planned: {name}.md")
             return
 
+        # Flat layout: no subdirectories, split oversized content into numbered files
+        if getattr(self.config, "flat_layout", False):
+            await self._split_content(ops, parent_dir, name, content_text, max_size)
+            return
+
         # Create directory and handle children or split
         section_dir = f"{parent_dir}/{name}"
         ops.append(_LayoutOp("mkdir", section_dir, exist_ok=True))

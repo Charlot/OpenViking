@@ -16,6 +16,7 @@ import asyncio
 import io
 import re
 import time
+import unicodedata
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -30,6 +31,8 @@ from openviking.parse.base import (
 from openviking.parse.parsers.base_parser import BaseParser
 from openviking_cli.utils import get_logger
 from openviking_cli.utils.config.parser_config import PDFConfig
+import logging
+logging.getLogger("pdfminer").setLevel(logging.ERROR)
 
 logger = get_logger(__name__)
 
@@ -361,6 +364,12 @@ class PDFParser(BaseParser):
                 return "", meta
 
             markdown_content = "\n\n".join(parts)
+
+            # Clean encoding artifacts from Chromium/pdfcpu-generated PDFs:
+            # \x01 (SOH) used as space, CJK Compatibility Ideographs (U+2F00 block)
+            markdown_content = markdown_content.replace("\x01", " ")
+            markdown_content = unicodedata.normalize("NFKC", markdown_content)
+
             logger.info(
                 f"Local conversion: {meta['pages_processed']}/{meta['total_pages']} pages, "
                 f"{meta['headings_found']} headings ({meta['heading_source']}, "

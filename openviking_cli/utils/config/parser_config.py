@@ -36,6 +36,9 @@ class ParserConfig:
     max_content_length: int = 100000
     encoding: str = "utf-8"
 
+    # Layout configuration
+    flat_layout: bool = False  # True = no subdirectories, all sections as flat files
+
     # Smart splitting configuration
     max_section_size: int = 2048  # Maximum tokens per section before splitting
     section_size_flexibility: float = 0.3  # Allow 30% overflow to maintain coherence

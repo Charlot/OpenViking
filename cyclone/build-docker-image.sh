@@ -14,3 +14,5 @@ docker buildx build --load \
 
 echo "==> 构建完成: $IMAGE"
 echo "运行示例: docker run --rm -p 1933:1933 -v ~/.openviking:/app/.openviking $IMAGE"
+
+docker push "$IMAGE"
