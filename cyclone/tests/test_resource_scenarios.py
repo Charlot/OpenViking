@@ -321,7 +321,7 @@ def t_delete_file():
     try:
         # uri = "viking://user/3/resources/knowledge_spaces/test1/Agent研发工程师面试题/"
         # uri = "viking://user/3/resources/knowledge_spaces/test1/Agent研发工程师面试题/Agent研发工程师面试题.md"
-        uri = "viking://user/3/resources/knowledge_spaces/test1/AI_Overview"
+        uri = "viking://user/3/resources/knowledge_spaces/test1/CyClaw-V0-2-产品_用户操作手册-pdf"
 
         for i in range(30):
             # uri = f"viking://resources/simple"
@@ -343,6 +343,6 @@ if __name__ == "__main__":
     # t_task_polling()
     # t_read_resource()
     # t_read_png_resource()
-    t_search_knowledge_space()
+    # t_search_knowledge_space()
     # t_reindex()
-    # t_delete_file()
+    t_delete_file()
