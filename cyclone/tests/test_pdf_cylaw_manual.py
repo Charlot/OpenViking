@@ -68,10 +68,10 @@ def extract_pdf_industrial():
             # 先尝试表格
             tables = page.extract_tables()
             real_tables = [
-                t for t in tables 
+                t for t in tables
                 if len(t) >= 2 and len(t[0]) >= 2  # 至少2行2列
             ]
-            
+
             if real_tables:
                 # 有真表格：只输出表格，文本跳过（或做区域排除）
                 print(real_tables)
