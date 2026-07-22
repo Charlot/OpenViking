@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -14,11 +14,27 @@ import {
   PlusIcon,
   RefreshCcwIcon,
   SearchIcon,
+  Trash2Icon,
 } from 'lucide-react'
+import { toast } from 'sonner'
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '#/components/ui/alert-dialog'
 import { Button } from '#/components/ui/button'
 import { cn } from '#/lib/utils'
-import { useVikingFsList } from '#/routes/resources/-hooks/viking-fm'
+import {
+  useInvalidateVikingFs,
+  useVikingFsList,
+} from '#/routes/resources/-hooks/viking-fm'
+import { deleteFsEntry } from '#/routes/resources/-lib/api'
 import type { VikingFsEntry } from '#/routes/resources/-types/viking-fm'
 
 import {
@@ -168,6 +184,7 @@ export function ContextTree({
   onExpandedKeysChange,
   onSelectDirectory,
   onSelectFile,
+  onDeletedDirectory,
   selectedFileUri,
   showHidden = true,
 }: {
@@ -176,6 +193,7 @@ export function ContextTree({
   onExpandedKeysChange: (next: Set<string>) => void
   onSelectDirectory: (entry: VikingFsEntry) => void
   onSelectFile: (entry: VikingFsEntry) => void
+  onDeletedDirectory?: (entry: VikingFsEntry) => void
   selectedFileUri?: string | null
   showHidden?: boolean
 }) {
@@ -198,6 +216,7 @@ export function ContextTree({
             onExpandedKeysChange={onExpandedKeysChange}
             onSelectDirectory={onSelectDirectory}
             onSelectFile={onSelectFile}
+            onDeletedDirectory={onDeletedDirectory}
             selectedFileUri={selectedFileUri}
             showHidden={showHidden}
           />
@@ -238,6 +257,7 @@ export function ContextTreeNode({
   onExpandedKeysChange,
   onSelectDirectory,
   onSelectFile,
+  onDeletedDirectory,
   selectedFileUri,
   showHidden = true,
 }: {
@@ -248,6 +268,7 @@ export function ContextTreeNode({
   onExpandedKeysChange: (next: Set<string>) => void
   onSelectDirectory: (entry: VikingFsEntry) => void
   onSelectFile: (entry: VikingFsEntry) => void
+  onDeletedDirectory?: (entry: VikingFsEntry) => void
   selectedFileUri?: string | null
   showHidden?: boolean
 }) {
@@ -273,6 +294,32 @@ export function ContextTreeNode({
     () => sortTreeEntries(visibleContextEntries(listQuery.data?.entries ?? [])),
     [listQuery.data?.entries],
   )
+  const { invalidateList, invalidateTree } = useInvalidateVikingFs()
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  // 命名空间根（User/Session/Resources，level 0）不可删除
+  const canDelete = entry.isDir && level > 0
+
+  const confirmDelete = useCallback(async () => {
+    setIsDeleting(true)
+    try {
+      await deleteFsEntry(entry.uri, { recursive: true })
+      void invalidateList()
+      void invalidateTree()
+      setDeleteDialogOpen(false)
+      toast.success(t('explorer.deleteSuccess', { name: entry.name }))
+      onDeletedDirectory?.(entry)
+    } catch (error) {
+      toast.error(
+        t('explorer.deleteFailed', {
+          name: entry.name,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      )
+    } finally {
+      setIsDeleting(false)
+    }
+  }, [entry, invalidateList, invalidateTree, onDeletedDirectory, t])
 
   useEffect(() => {
     if (!isSelected) return
@@ -369,7 +416,54 @@ export function ContextTreeNode({
             {t('explorer.overviewLevel')}
           </span>
         ) : null}
+        {canDelete ? (
+          <button
+            type="button"
+            title={t('explorer.deleteFolder')}
+            className="inline-flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-all hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+            onClick={(event) => {
+              event.stopPropagation()
+              setDeleteDialogOpen(true)
+            }}
+          >
+            <Trash2Icon className="size-3.5" />
+          </button>
+        ) : null}
       </div>
+
+      {canDelete ? (
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {t('explorer.deleteFolderTitle')}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('explorer.deleteFolderDescription', { name: entry.name })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>
+                {t('explorer.deleteCancel')}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                disabled={isDeleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={(event) => {
+                  event.preventDefault()
+                  void confirmDelete()
+                }}
+              >
+                {isDeleting ? (
+                  <Loader2Icon className="size-4 animate-spin" />
+                ) : (
+                  t('explorer.deleteConfirm')
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      ) : null}
 
       {entry.isDir && isOpen ? (
         <div className="relative min-w-0">
@@ -393,6 +487,7 @@ export function ContextTreeNode({
                 onExpandedKeysChange={onExpandedKeysChange}
                 onSelectDirectory={onSelectDirectory}
                 onSelectFile={onSelectFile}
+                onDeletedDirectory={onDeletedDirectory}
                 selectedFileUri={selectedFileUri}
                 showHidden={showHidden}
               />

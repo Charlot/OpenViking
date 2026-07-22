@@ -745,6 +745,14 @@ const zhCN = {
       overviewLevel: 'L1',
       search: '搜索上下文',
       refresh: '刷新目录',
+      deleteFolder: '删除文件夹',
+      deleteFolderTitle: '确定删除该文件夹吗？',
+      deleteFolderDescription:
+        '将永久删除 "{{name}}" 及其全部内容，此操作不可撤销。',
+      deleteConfirm: '删除',
+      deleteCancel: '取消',
+      deleteSuccess: '已删除 {{name}}',
+      deleteFailed: '删除 {{name}} 失败：{{error}}',
       namespaces: {
         user: '用户个性化记忆',
         session: '用户与 Agent 的原始会话',

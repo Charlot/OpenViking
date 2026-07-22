@@ -10,8 +10,10 @@ Usage:
 
 from pathlib import Path
 
+PAGES = 5
+
 SRC = Path(__file__).parent / "data" / "CyClaw用户操作手册.pdf"
-DST = Path(__file__).parent / "data" / "CyClaw-2pages.pdf"
+DST = Path(__file__).parent / "data" / f"CyClaw-{PAGES}pages.pdf"
 
 
 
@@ -20,7 +22,7 @@ def split_with_pikepdf():
 
     pdf = pikepdf.open(str(SRC))
     dst = pikepdf.new()
-    dst.pages.extend(pdf.pages[:2])
+    dst.pages.extend(pdf.pages[:PAGES])
     dst.save(str(DST))
 
 

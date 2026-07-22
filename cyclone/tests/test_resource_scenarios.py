@@ -322,6 +322,8 @@ def t_delete_file():
         # uri = "viking://user/3/resources/knowledge_spaces/test1/Agent研发工程师面试题/"
         # uri = "viking://user/3/resources/knowledge_spaces/test1/Agent研发工程师面试题/Agent研发工程师面试题.md"
         uri = "viking://user/3/resources/knowledge_spaces/test1/CyClaw-V0-2-产品_用户操作手册-pdf"
+        uri = "viking://resources/CyClaw用户操作手册/"
+
 
         for i in range(30):
             # uri = f"viking://resources/simple"

@@ -14,6 +14,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from openviking.parse.parsers.pdf import PDFParser
+from openviking_cli.utils.config.parser_config import PDFConfig
+
+
+def _make_v1_parser() -> PDFParser:
+    """本文件测试 V1 转换路径（默认已切换为 v2，这里显式固定 v1）。"""
+    return PDFParser(PDFConfig(local_version="v1"))
 
 
 def _make_page(*, pageid=None, objid=None):
@@ -265,13 +271,28 @@ class TestExtractBookmarks:
         bookmarks = self.parser._extract_bookmarks(mock_pdf)
         assert bookmarks == []
 
+    def test_extract_bookmarks_pdf_no_outlines_is_quiet(self, caplog):
+        """pdfminer PDFNoOutlines（无书签目录）是正常情况，不告警。"""
+        import logging
+
+        class PDFNoOutlines(Exception):
+            pass
+
+        mock_pdf = MagicMock()
+        mock_pdf.pages = []
+        mock_pdf.doc.get_outlines.side_effect = PDFNoOutlines
+
+        with caplog.at_level(logging.DEBUG):
+            assert self.parser._extract_bookmarks(mock_pdf) == []
+        assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
+
 
 class TestConvertLocalBookmarks:
     """Test bookmark injection behavior in local PDF conversion."""
 
     @pytest.mark.asyncio
     async def test_convert_local_skips_unresolved_bookmarks(self):
-        parser = PDFParser()
+        parser = _make_v1_parser()
         fake_pdf = SimpleNamespace(pages=[_FakePage("Page one"), _FakePage("Page two")])
         fake_pdfplumber = SimpleNamespace(open=lambda _path: nullcontext(fake_pdf))
 
@@ -300,7 +321,7 @@ class TestConvertLocalBookmarks:
 
     @pytest.mark.asyncio
     async def test_convert_local_falls_back_to_font_when_bookmarks_unresolved(self):
-        parser = PDFParser()
+        parser = _make_v1_parser()
         fake_pdf = SimpleNamespace(pages=[_FakePage("Page one"), _FakePage("Page two")])
         fake_pdfplumber = SimpleNamespace(open=lambda _path: nullcontext(fake_pdf))
 
@@ -331,7 +352,7 @@ class TestConvertLocalBookmarks:
 
     @pytest.mark.asyncio
     async def test_convert_local_closes_page_after_each_page(self):
-        parser = PDFParser()
+        parser = _make_v1_parser()
         pages = [_FakePage("Page one"), _FakePage("Page two")]
         fake_pdf = SimpleNamespace(pages=pages)
         fake_pdfplumber = SimpleNamespace(open=lambda _path: nullcontext(fake_pdf))

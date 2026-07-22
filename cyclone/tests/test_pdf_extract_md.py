@@ -36,6 +36,7 @@ logging.getLogger("pdfminer").setLevel(logging.ERROR)
 # ---------------------------------------------------------------------------
 PDF_PATHS = [
     Path("./data/CyClaw-2pages.pdf"),
+    Path("./data/CyClaw-5pages.pdf"),
     Path("./data/CyClaw用户操作手册.pdf"),
     Path("./data/test-pdf.pdf"),
 ]
@@ -48,6 +49,17 @@ FULL_PAGE_AREA_RATIO = 0.75  # 单列表格面积占页面超过此比例视为�
 IMAGE_RESOLUTION = 150  # 渲染 DPI
 MIN_IMAGE_SIZE = 20.0  # pt：小于此尺寸的图片（图标/装饰）跳过
 MAX_IMAGE_AREA_RATIO = 0.9  # 面积占比超过此值的图片视为页面背景，跳过
+
+# 文本行重建参数
+FULL_WIDTH_TOLERANCE = 14.0  # pt：行右端距页面文本右缘小于此值视为排满整行（标点压缩会让对齐行尾短 0.5–1 字符）
+BOX_DRAWING_CHARS = frozenset("─│┌┐└┘├┤┬┴┼━┃┏┓┗┛┣┫┳┻╋═║")
+BULLET_MAP = {"•": "- ", "◦": "  - ", "▪": "- ", "‣": "- "}
+
+# 跨页续表参数（与生产 pdf.py 一致：宁缺毋滥，不满足保持原样）
+RECOVER_EDGE_TOLERANCE = 2.0  # pt：竖边与列边界对齐容差
+STITCH_COL_TOLERANCE = 5.0  # pt：续表列边界对齐容差
+STITCH_BOTTOM_GAP = 20.0  # pt：前页表底距内容底超过此值视为自然结束
+STITCH_TOP_GAP = 60.0  # pt：续表顶距内容顶超过此值视为新表
 
 
 # ---------------------------------------------------------------------------
@@ -116,6 +128,269 @@ def _drop_empty_cols(rows):
     return [[r[j] if j < len(r) else None for j in keep] for r in rows]
 
 
+def _drop_empty_cols_with_idx(rows):
+    """_drop_empty_cols 的同时返回保留列索引（供列边界对齐使用）。"""
+    if not rows:
+        return rows, []
+    ncols = max(len(r) for r in rows)
+    keep = [
+        j
+        for j in range(ncols)
+        if any(j < len(r) and r[j] and str(r[j]).strip() for r in rows)
+    ]
+    return [[r[j] if j < len(r) else None for j in keep] for r in rows], keep
+
+
+def _table_col_bounds(table, keep):
+    """表格列边界 x 序列（len = 列数+1），用于跨页续表列对齐与漏行回收。"""
+    try:
+        cols = []
+        for col in table.columns:
+            cells = getattr(col, "cells", None) or []
+            xs0 = [c[0] for c in cells]
+            xs1 = [c[2] for c in cells]
+            if xs0:
+                cols.append((min(xs0), max(xs1)))
+        if not cols:
+            return []
+        cols.sort()
+        bounds = [cols[0][0]] + [x1 for _, x1 in cols]
+        if keep:
+            bounds = [bounds[0]] + [bounds[j + 1] for j in keep]
+        return bounds
+    except Exception:
+        return []
+
+
+def _page_content_bounds(page):
+    """页面内容区 (top, bottom)：取最大无描边填充矩形（背景框），无则整页。"""
+    page_area = page.width * page.height
+    best = None
+    for r in getattr(page, "rects", []) or []:
+        if r.get("stroke") or (r.get("linewidth") or 0) > 0:
+            continue
+        area = r["width"] * r["height"]
+        if area > page_area * 0.5 and (best is None or area > best[0]):
+            best = (area, r["top"], r["bottom"])
+    if best:
+        return best[1], best[2]
+    return 0.0, page.height
+
+
+def _recover_leaked_rows(chars, text_lines, table_dict, page):
+    """回收跨页续表漏出的首行（飞书续页首行无顶边框，检测不到表格闭合）。
+
+    硬约束（与生产 pdf.py 一致）：候选行必须被 ≥2 条与列边界对齐、从表体
+    向上延伸的竖边实际包围；单列字符行并入上一回收行对应单元格。
+    返回 (recovered_rows, consumed_line_idx, region_top)。
+    """
+    table_top = table_dict["bbox"][1]
+    bounds = table_dict.get("col_bounds") or []
+    if len(bounds) < 2:
+        return [], set(), table_top
+
+    v_edges = []  # (x, top, bottom)
+    for ln in getattr(page, "lines", []) or []:
+        if ln["top"] == ln["bottom"]:
+            continue
+        x = (ln["x0"] + ln["x1"]) / 2
+        if ln["top"] < table_top - 1 and ln["bottom"] >= table_top - 1:
+            if any(abs(x - b) <= RECOVER_EDGE_TOLERANCE for b in bounds):
+                v_edges.append((x, ln["top"], ln["bottom"]))
+    for r in getattr(page, "rects", []) or []:
+        if r["width"] >= FILL_RECT_MAX_SIZE or r["height"] < FILL_RECT_MAX_SIZE:
+            continue
+        x = (r["x0"] + r["x1"]) / 2
+        if r["top"] < table_top - 1 and r["bottom"] >= table_top - 1:
+            if any(abs(x - b) <= RECOVER_EDGE_TOLERANCE for b in bounds):
+                v_edges.append((x, r["top"], r["bottom"]))
+    if len({round(x, 1) for x, _, _ in v_edges}) < 2:
+        return [], set(), table_top
+    region_top = min(t for _, t, _ in v_edges)
+
+    recovered = []
+    consumed = set()
+    for idx, line in enumerate(text_lines):
+        if line["bottom"] > table_top + 1 or line["top"] < region_top - 2:
+            continue
+        covering = [
+            e for e in v_edges if e[1] <= line["top"] + 2 and e[2] >= line["bottom"] - 2
+        ]
+        if len({round(x, 1) for x, _, _ in covering}) < 2:
+            continue
+        cells = [[] for _ in range(len(bounds) - 1)]
+        for c in chars:
+            if c["top"] >= line["bottom"] or c["bottom"] <= line["top"]:
+                continue
+            cx = (c["x0"] + c["x1"]) / 2
+            for j in range(len(cells)):
+                if bounds[j] - 1 <= cx <= bounds[j + 1] + 1:
+                    cells[j].append(c)
+                    break
+        texts = [
+            "".join(ch["text"] for ch in sorted(cs, key=lambda c: c["x0"]))
+            .replace("\x01", " ")
+            .strip()
+            for cs in cells
+        ]
+        non_empty = [j for j, t in enumerate(texts) if t]
+        if len(non_empty) >= 2:
+            recovered.append(texts)
+            consumed.add(idx)
+        elif len(non_empty) == 1 and recovered:
+            j = non_empty[0]
+            recovered[-1][j] = _join_two_lines(recovered[-1][j], texts[j])
+            consumed.add(idx)
+    return recovered, consumed, region_top
+
+
+def _norm_row(row):
+    return [re.sub(r"\s+", "", c or "") for c in row]
+
+
+def _stitch_cross_page_tables(pages):
+    """跨页续表合并（与生产 pdf.py 一致的三重几何守卫，不满足保持原样）。"""
+    for i in range(1, len(pages)):
+        cur = pages[i]
+        # 最近一个仍有块的前页（块为空的页说明其表已被并入更早的页——链式合并）
+        j = i - 1
+        while j >= 0 and not pages[j]["blocks"]:
+            j -= 1
+        if j < 0:
+            continue
+        prev = pages[j]
+        if not cur["blocks"]:
+            continue
+        if prev["blocks"][-1][0] != "table" or cur["blocks"][0][0] != "table":
+            continue
+        p, t = prev["blocks"][-1][1], cur["blocks"][0][1]
+        pb, tb = p.get("col_bounds") or [], t.get("col_bounds") or []
+        if not pb or len(pb) != len(tb):
+            continue
+        if any(abs(a - b) > STITCH_COL_TOLERANCE for a, b in zip(pb, tb)):
+            continue
+        end_idx = p.get("end_idx", j)
+        if pages[end_idx]["content_bottom"] - p["bbox"][3] > STITCH_BOTTOM_GAP:
+            continue
+        if t["top"] - cur["content_top"] > STITCH_TOP_GAP:
+            continue
+        rows = t["rows"]
+        if rows and p["rows"] and _norm_row(rows[0]) == _norm_row(p["rows"][0]):
+            rows = rows[1:]
+        p["rows"].extend(rows)
+        p["bbox"] = (p["bbox"][0], p["bbox"][1], p["bbox"][2], t["bbox"][3])
+        p["end_idx"] = i
+        cur["blocks"].pop(0)
+
+
+def _join_cell_lines(text):
+    """合并单元格内换行（与生产 pdf.py 同规则）：CJK 之间直接相连，其余补空格。"""
+    out = ""
+    for ln in text.splitlines():
+        ln = ln.strip()
+        if not ln:
+            continue
+        out = _join_two_lines(out, ln)
+    return out
+
+
+def _join_two_lines(a, b):
+    """按 CJK 规则拼接两行：两端都是宽字符直接相连，否则补空格。"""
+    if a and not (
+        unicodedata.east_asian_width(a[-1]) in ("W", "F")
+        and unicodedata.east_asian_width(b[0]) in ("W", "F")
+    ):
+        return a + " " + b
+    return a + b
+
+
+def _normalize_list_line(text):
+    """PDF 项目符号 / 有序编号 → Markdown 列表行。返回 (is_list, text)。"""
+    for bullet, md in BULLET_MAP.items():
+        if text.startswith(bullet):
+            return True, md + text[1:].strip()
+    if re.match(r"^\d+\.\s", text):
+        return True, text
+    return False, text
+
+
+def _starts_new_block(text):
+    """是否强制另起逻辑行："1.5 ⻚面导航关系" 类章节编号行（非列表，但不可并入段落）。"""
+    return bool(re.match(r"^\d+(\.\d+)+\s", text))
+
+
+def _reconstruct_text_lines(lines, right_edge):
+    """连续视觉行 → Markdown 逻辑结构（与生产 pdf.py 同规则）。
+
+    1. 含 box-drawing 字符的连续行（ASCII 树/代码块，含相邻 "N " 行号行）→ ``` 围栏；
+    2. 项目符号与 "N." 有序项 → Markdown 列表，连续列表项单行相连；
+    3. 段落软换行合并：上一视觉行排满整行（右端贴近 right_edge）时当前行是续行，
+       按 CJK 规则并入；逻辑行之间以空行分隔。
+    """
+    # \x01（Chromium 排版间隙占位符）先归一为空格，否则行首模式匹配失效
+    norm = [
+        dict(l, text=l["text"].replace("\x01", " ").strip())
+        for l in lines
+        if l["text"].strip()
+    ]
+    if not norm:
+        return ""
+
+    raw_code = [
+        bool(BOX_DRAWING_CHARS.intersection(l["text"]))
+        or bool(re.match(r"^\d{1,3}\s+\S", l["text"]))
+        for l in norm
+    ]
+    code = [False] * len(norm)
+    i = 0
+    while i < len(norm):
+        if not raw_code[i]:
+            i += 1
+            continue
+        j = i
+        has_box = False
+        while j < len(norm) and raw_code[j]:
+            has_box = has_box or bool(BOX_DRAWING_CHARS.intersection(norm[j]["text"]))
+            j += 1
+        if has_box and j - i >= 2:
+            for k in range(i, j):
+                code[k] = True
+        i = j
+
+    blocks = []  # [kind, text]，kind ∈ code | list | para
+    prev_full = False
+    for idx, line in enumerate(norm):
+        text = line["text"]
+        if code[idx]:
+            if blocks and blocks[-1][0] == "code":
+                blocks[-1][1] += "\n" + text
+            else:
+                blocks.append(["code", text])
+            prev_full = False
+            continue
+        is_list, text = _normalize_list_line(text)
+        is_full = line.get("x1", 0.0) >= right_edge - FULL_WIDTH_TOLERANCE
+        if (
+            prev_full
+            and not is_list
+            and not _starts_new_block(text)
+            and blocks
+            and blocks[-1][0] in ("para", "list")
+        ):
+            head, sep, last = blocks[-1][1].rpartition("\n")
+            blocks[-1][1] = head + sep + _join_two_lines(last, text)
+        elif is_list and blocks and blocks[-1][0] == "list":
+            blocks[-1][1] += "\n" + text
+        else:
+            blocks.append(["list" if is_list else "para", text])
+        prev_full = is_full
+
+    out = []
+    for kind, text in blocks:
+        out.append(f"```\n{text}\n```" if kind == "code" else text)
+    return "\n\n".join(out)
+
+
 def _format_table_markdown(table):
     """pdfplumber 提取的二维表 → Markdown 表格。空表返回 ""。"""
     table = _drop_empty_cols(table)
@@ -125,7 +400,8 @@ def _format_table_markdown(table):
     def clean_cell(cell):
         if cell is None:
             return ""
-        return str(cell).replace("|", "\\|").replace("\n", "<br>").strip()
+        text = str(cell).replace("|", "\\|").strip()
+        return _join_cell_lines(text) if "\n" in text else text
 
     lines = []
     header = [clean_cell(c) for c in table[0]]
@@ -206,6 +482,7 @@ def parse_pdf_to_md(pdf_path: Path):
 
     parts = [f"# {stem}"]
     stats = {"pages": 0, "tables": 0, "images": 0}
+    pages = []  # 逐页结构化块：先收集，跨页续表缝合后再渲染
 
     with pdfplumber.open(pdf_path) as pdf:
         for page_num, page in enumerate(pdf.pages, 1):
@@ -213,14 +490,25 @@ def parse_pdf_to_md(pdf_path: Path):
                 stats["pages"] += 1
                 blocks = []  # (top, kind_order, kind, payload)
 
-                # --- 表格 ---
+                # --- 表格（保留结构化 rows/col_bounds，缝合后渲染） ---
                 real_tables = _find_real_tables(page)
                 table_bboxes = [t.bbox for t in real_tables]
+                table_dicts = []
                 for table in real_tables:
-                    md_table = _format_table_markdown(table.extract())
-                    if md_table:
-                        blocks.append((table.bbox[1], 1, "table", md_table))
-                        stats["tables"] += 1
+                    rows, keep = _drop_empty_cols_with_idx(table.extract())
+                    if not rows or not rows[0]:
+                        continue
+                    table_dicts.append(
+                        {
+                            "rows": rows,
+                            "bbox": table.bbox,
+                            "col_bounds": _table_col_bounds(table, keep),
+                            "top": table.bbox[1],
+                        }
+                    )
+                table_dicts.sort(key=lambda td: td["bbox"][1])
+                for td in table_dicts:
+                    blocks.append((td["bbox"][1], 1, "table", td))
 
                 # --- 图片 ---
                 for img_idx, img in enumerate(page.images or [], 1):
@@ -241,24 +529,83 @@ def parse_pdf_to_md(pdf_path: Path):
 
                 # --- 文本（排除表格区域字符，按行成块） ---
                 filtered = _page_outside_tables(page, table_bboxes)
-                for line in filtered.extract_text_lines():
-                    text = line["text"].strip()
-                    if text:
-                        blocks.append((line["top"], 0, "text", text))
+                text_lines = filtered.extract_text_lines()
+                right_edge = max((l["x1"] for l in text_lines), default=0.0)
+                # --- 漏行回收：跨页续表首行无顶边框检测不到，
+                # 若被列竖边向上延伸包围则按列聚回并 prepend 到首表 ---
+                consumed = set()
+                if text_lines and table_dicts:
+                    try:
+                        recovered, consumed, region_top = _recover_leaked_rows(
+                            getattr(filtered, "chars", []),
+                            text_lines,
+                            table_dicts[0],
+                            page,
+                        )
+                        if recovered:
+                            td = table_dicts[0]
+                            td["rows"] = recovered + td["rows"]
+                            td["top"] = min(td["top"], region_top)
+                    except Exception:
+                        consumed = set()
+                for idx, line in enumerate(text_lines):
+                    if idx in consumed:
+                        continue
+                    if line["text"].strip():
+                        blocks.append((line["top"], 0, "text", line))
 
-                # --- 按 Y 混排，连续文本行合并为一个块 ---
+                # --- 按 Y 混排，连续文本行重建为逻辑结构 ---
+                # （段落软换行合并 / 项目符号列表 / box-drawing 代码围栏）
                 page_parts = []
+                text_run = []
                 for _, _, kind, payload in sorted(blocks, key=lambda b: (b[0], b[1])):
-                    if kind == "text" and page_parts and page_parts[-1][0] == "text":
-                        page_parts[-1][1] += "\n" + payload
-                    else:
-                        page_parts.append([kind, payload])
+                    if kind == "text":
+                        text_run.append(payload)
+                        continue
+                    if text_run:
+                        page_parts.append(
+                            ["text", _reconstruct_text_lines(text_run, right_edge)]
+                        )
+                        text_run = []
+                    page_parts.append([kind, payload])
+                if text_run:
+                    page_parts.append(["text", _reconstruct_text_lines(text_run, right_edge)])
 
-                if page_parts:
-                    body = "\n\n".join(payload for _, payload in page_parts)
-                    parts.append(f"<!-- Page {page_num} -->\n{body}")
+                content_top, content_bottom = _page_content_bounds(page)
+                pages.append(
+                    {
+                        "page_num": page_num,
+                        "blocks": page_parts,
+                        "content_top": content_top,
+                        "content_bottom": content_bottom,
+                    }
+                )
             finally:
                 _release_page_cache(page)
+
+    # --- 跨页续表缝合（三重几何守卫，不满足保持原样） ---
+    _stitch_cross_page_tables(pages)
+
+    # --- 渲染 ---
+    for entry in pages:
+        if not entry["blocks"]:
+            continue
+        rendered = []
+        table_idx = 0
+        for kind, payload in entry["blocks"]:
+            if kind == "table":
+                md_table = _format_table_markdown(payload["rows"])
+                if not md_table:
+                    continue
+                table_idx += 1
+                stats["tables"] += 1
+                rendered.append(
+                    f"<!-- Page {entry['page_num']} Table {table_idx} -->\n{md_table}"
+                )
+            else:
+                rendered.append(payload)
+        if rendered:
+            parts.append(f"<!-- Page {entry['page_num']} -->\n" + "\n\n".join(rendered))
 
     markdown = "\n\n".join(parts)
     # 清理 Chromium 系 PDF 的 \x01 空格占位符 + CJK 兼容字符归一化

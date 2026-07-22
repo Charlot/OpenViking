@@ -385,6 +385,27 @@ function PlaygroundWorkbench() {
     [syncSearch],
   )
 
+  // 文件夹删除成功后：若当前选中在被删目录内，回退到父目录并清理展开态
+  const handleDeletedDirectory = useCallback(
+    (entry: VikingFsEntry) => {
+      const deletedUri = normalizeDirUri(entry.uri)
+      setExpandedKeys((prev) => {
+        const next = new Set<string>()
+        for (const key of prev) {
+          if (key !== deletedUri && !key.startsWith(deletedUri)) next.add(key)
+        }
+        return next
+      })
+      const parent = createEntryFromUri(parentUri(deletedUri), true)
+      const selectedUri = selectedFile?.uri ?? currentUri
+      if (selectedUri === deletedUri || selectedUri.startsWith(deletedUri)) {
+        handleSelectDirectory(parent)
+      }
+    },
+    [currentUri, selectedFile, handleSelectDirectory],
+  )
+
+
   const handleOpenActionPanel = useCallback(
     (panel: PlaygroundPanel) => {
       handlePanelChange(panel)
@@ -569,6 +590,7 @@ function PlaygroundWorkbench() {
               onExpandedKeysChange={setExpandedKeys}
               onSelectDirectory={handleSelectDirectory}
               onSelectFile={handleSelectFile}
+              onDeletedDirectory={handleDeletedDirectory}
               showHidden={showHidden}
             />
           </div>

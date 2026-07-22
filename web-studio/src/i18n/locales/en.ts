@@ -769,6 +769,14 @@ const en = {
       overviewLevel: 'L1',
       search: 'Search context',
       refresh: 'Refresh tree',
+      deleteFolder: 'Delete folder',
+      deleteFolderTitle: 'Delete this folder?',
+      deleteFolderDescription:
+        'This will permanently delete "{{name}}" and everything inside it. This action cannot be undone.',
+      deleteConfirm: 'Delete',
+      deleteCancel: 'Cancel',
+      deleteSuccess: 'Deleted {{name}}',
+      deleteFailed: 'Failed to delete {{name}}: {{error}}',
       namespaces: {
         user: 'Personalized user memories',
         session: 'Raw sessions between the user and the Agent',

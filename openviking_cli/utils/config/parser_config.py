@@ -154,6 +154,10 @@ class PDFConfig(ParserConfig):
 
     strategy: str = "auto"  # "local" | "mineru" | "auto"
 
+    # PDF 转换出的标题层级来自书签/字号启发式，层级不可靠（常跳级），
+    # 嵌套目录布局会产生同名多级子目录；PDF 资源统一平铺为一级文件。
+    flat_layout: bool = True
+
     # MinerU API configuration
     mineru_endpoint: Optional[str] = None  # API endpoint URL
     mineru_api_key: Optional[str] = None  # API authentication key
@@ -167,6 +171,11 @@ class PDFConfig(ParserConfig):
 
     # Image extraction configuration
     image_resolution: int = 300  # Rendering DPI for extracted image regions
+
+    # Local conversion version: "v2"（默认）= 严格表格检测 + 字符级排除 + Y 混排，
+    # 消除飞书等含整页背景框 PDF 的文本/表格重复；
+    # "v1" = 原始实现（文本+表格直接拼接，保留用于兼容性回退）
+    local_version: str = "v2"  # "v1" | "v2"
 
     def validate(self) -> None:
         """
@@ -196,6 +205,11 @@ class PDFConfig(ParserConfig):
 
         if self.font_heading_min_delta <= 0:
             raise ValueError("font_heading_min_delta must be positive")
+
+        if self.local_version not in ("v1", "v2"):
+            raise ValueError(
+                f"Invalid local_version '{self.local_version}'. Must be 'v1' or 'v2'"
+            )
 
 
 @dataclass
