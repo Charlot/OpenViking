@@ -37,7 +37,10 @@ class ParserConfig:
     encoding: str = "utf-8"
 
     # Layout configuration
-    flat_layout: bool = False  # True = no subdirectories, all sections as flat files
+    # Deprecated: subdirectory layout has been removed; oversized sections are
+    # always split into numbered flat files. Field kept only so existing
+    # config files that set it still parse.
+    flat_layout: bool = True
 
     # Smart splitting configuration
     max_section_size: int = 2048  # Maximum tokens per section before splitting
@@ -153,10 +156,6 @@ class PDFConfig(ParserConfig):
     """
 
     strategy: str = "auto"  # "local" | "mineru" | "auto"
-
-    # PDF 转换出的标题层级来自书签/字号启发式，层级不可靠（常跳级），
-    # 嵌套目录布局会产生同名多级子目录；PDF 资源统一平铺为一级文件。
-    flat_layout: bool = True
 
     # MinerU API configuration
     mineru_endpoint: Optional[str] = None  # API endpoint URL

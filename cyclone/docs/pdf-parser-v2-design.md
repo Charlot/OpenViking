@@ -1,8 +1,8 @@
 # PDF 本地解析 V2 设计文档
 
-> 状态：已实现并验证（2026-07-21）
+> 状态：已实现并验证（2026-07-22，含跨页续表合并、行重建、子目录布局移除）
 > 代码：`openviking/parse/parsers/pdf.py` · 配置：`PDFConfig.local_version`（默认 `"v2"`，`"v1"` 保留用于兼容性回退）
-> 测试语料：`cyclone/tests/data/{CyClaw-2pages, CyClaw用户操作手册, test-pdf}.pdf`
+> 测试语料：`cyclone/tests/data/{CyClaw-2pages, CyClaw-5pages, CyClaw用户操作手册, test-pdf}.pdf`
 
 ## 1. 背景与问题
 
@@ -19,11 +19,11 @@ V1（`_convert_local_sync`）的本地转换流程是：每页先 `extract_text(
 ```
 PDF → 标题检测(书签/字号, 与 V1 共用)
     → 逐页：
-        表格: 严格边界检测 → 整页误检过滤 → 丢弃全空列 → Markdown 表格
+        表格: 严格边界检测 → 整页误检过滤 → 丢弃全空列 → 漏行回收(跨页续表首行)
         文本: 字符级排除表格区域(page.filter) → extract_text_lines → 行重建(段落合并/列表/代码围栏)
         图片: 尺寸过滤(图标/背景) → 裁剪渲染 PNG → 存储
         混排: 文本行/表格/图片按 Y 坐标归并，保留页内原始顺序
-    → 全局清理(\x01 → 空格, NFKC) → Markdown
+    → 跨页续表合并(三重守卫) → 全局清理(\x01 → 空格, NFKC) → Markdown
 ```
 
 核心不变量：**文本与表格零重叠、零丢失**。表格区域内的字符只出现在表格里，区域外的字符全部保留在文本里（字符中心点判定归属）。
@@ -94,7 +94,7 @@ PDFConfig(local_version="v1")            # 回退旧实现（兼容性保留）
 
 - `_convert_local_sync` 入口按 `local_version` 分发，V1 路径零改动；
 - `auto` 策略下 V2 失败仍会回退 MinerU（行为不变）；
-- `PDFConfig` 默认 `flat_layout=True`：PDF 转换出的标题层级来自书签/字号启发式，层级不可靠（常跳级，如 H1→H3 无 H2），嵌套目录布局会产生同名多级子目录（`手册/手册/手册_N.md`），故 PDF 资源统一平铺为一级文件；
+- 目录布局：`MarkdownParser._save_section` 已**移除子目录布局**，超大 section 一律在父目录切成 `{name}_N.md` 平铺文件（标题层级来自书签/字号启发式，不可靠，嵌套布局会产生同名多级子目录且对检索无益）；`flat_layout` 配置字段废弃保留（仅为兼容旧配置文件）；
 - V2 关键阈值均为 `PDFParser` 类常量：`V2_FILL_RECT_MAX_SIZE=3.0`、`V2_FULL_PAGE_AREA_RATIO=0.75`、`V2_MIN_IMAGE_SIZE=20.0`、`V2_MAX_IMAGE_AREA_RATIO=0.9`。
 
 ## 8. 验证结果
@@ -104,11 +104,14 @@ PDFConfig(local_version="v1")            # 回退旧实现（兼容性保留）
 | PDF | 页数 | V1 表格数 | V2 表格数 | 图片 | 页内重复 |
 |---|---|---|---|---|---|
 | CyClaw-2pages | 2 | 3（含误检） | 1 | 0 | 无 |
-| CyClaw用户操作手册 | 92 | 149（含 59 误检） | 85（跨页合并 -8） | 54 | 无 |
+| CyClaw-5pages | 5 | — | 5（含 1 处跨页合并 + 漏行回收） | — | 无 |
+| CyClaw用户操作手册 | 92 | 149（含 59 误检） | 85（93 - 8 处跨页续表合并） | 54 | 无 |
 | test-pdf | 12 | 4 | 4 | 40 | 无 |
 
 - 页内零重复不变量：表格单元格内容（≥20 字符归一化片段）不得出现在同页文本块——全语料通过（跨页合法重复引用不计，如附录索引表与正文描述同一字段）；
 - 半边框表首列回归：CyClaw-2pages 表格保持 3 列（端/主要使用者/核心价值）；
+- 跨页续表回归：CyClaw-5pages P3→P4 续表漏行（"频道 Channel…协作入口"）被回收进表、表头不错位、无孤儿文本；
+- 服务器端到端：API 上传手册 → 92 页 / 85 表 / **54 图全部入库**，产出 8 个平铺 md 文件、无子目录；
 - 官方回归：`tests/parse/test_pdf_bookmark_extraction.py` + `test_parser_config_wiring.py` 22 passed；
 - 性能：92 页 + 54 图 ≈ 11s。
 
@@ -124,7 +127,8 @@ PDFConfig(local_version="v1")            # 回退旧实现（兼容性保留）
 
 | 文件 | 内容 |
 |---|---|
-| `openviking/parse/parsers/pdf.py` | `_convert_local_sync_v2`、`_strict_table_settings`、`_find_real_tables`、`_drop_empty_cols`、`_page_outside_tables`、`_is_content_image`、`_collect_headings_by_page`、`_reconstruct_text_lines`、`_join_cell_lines`、`_recover_leaked_rows`、`_stitch_cross_page_tables`、`_table_col_bounds`、`_page_content_bounds` |
-| `openviking_cli/utils/config/parser_config.py` | `PDFConfig.local_version`（"v1" 默认 / "v2"） |
-| `cyclone/tests/test_pdf_local_v2.py` | V2 官方测试：配置分发、边界分类、误检过滤、语料端到端（21 项） |
+| `openviking/parse/parsers/pdf.py` | `_convert_local_sync_v2`、`_strict_table_settings`、`_find_real_tables`、`_drop_empty_cols_with_idx`、`_page_outside_tables`、`_is_content_image`、`_collect_headings_by_page`、`_reconstruct_text_lines`、`_normalize_list_line`、`_starts_new_block`、`_join_two_lines`、`_join_cell_lines`、`_recover_leaked_rows`、`_stitch_cross_page_tables`、`_table_col_bounds`、`_page_content_bounds`、`_norm_row` |
+| `openviking/parse/parsers/markdown.py` | `_save_section`：子目录布局已移除，超大 section 一律切 `{name}_N.md` 平铺文件 |
+| `openviking_cli/utils/config/parser_config.py` | `PDFConfig.local_version`（默认 `"v2"` / `"v1"` 回退）；`flat_layout` 字段废弃保留（兼容旧配置文件） |
+| `cyclone/tests/test_pdf_local_v2.py` | V2 官方测试 45 项：配置分发、边界分类、误检过滤、行重建、单元格换行、漏行回收、跨页合并、语料端到端 |
 | `cyclone/tests/test_pdf_extract_md.py` | 同源独立实现 + 语料基准断言（输出至 `data/<stem>/`） |

@@ -1331,9 +1331,8 @@ class MarkdownParser(BaseParser):
         max_size: int,
         min_size: int,
     ) -> None:
-        """Plan a single section (file or directory) into ``ops``."""
+        """Plan a single section (always as flat file(s)) into ``ops``."""
         name, tokens, content_text = section["name"], section["tokens"], section["content"]
-        has_children = section["has_children"]
 
         # Fits in one file (check both token and char limits)
         if tokens <= max_size and len(content_text) <= self.config.max_section_chars:
@@ -1341,51 +1340,10 @@ class MarkdownParser(BaseParser):
             logger.debug(f"[MarkdownParser] Planned: {name}.md")
             return
 
-        # Flat layout: no subdirectories, split oversized content into numbered files
-        if getattr(self.config, "flat_layout", False):
-            await self._split_content(ops, parent_dir, name, content_text, max_size)
-            return
-
-        # Create directory and handle children or split
-        section_dir = f"{parent_dir}/{name}"
-        ops.append(_LayoutOp("mkdir", section_dir, exist_ok=True))
-
-        if has_children:
-            await self._process_children(
-                ops, content, headings, section_dir, section, name, max_size, min_size
-            )
-        else:
-            await self._split_content(ops, section_dir, name, content_text, max_size)
-
-    async def _process_children(
-        self,
-        ops: List[_LayoutOp],
-        content: str,
-        headings: List[Tuple[int, int, str, int]],
-        section_dir: str,
-        section: Dict[str, Any],
-        name: str,
-        max_size: int,
-        min_size: int,
-    ) -> None:
-        """Build and plan child sections into ``ops``."""
-        children = []
-        if section.get("direct_content"):
-            children.append(
-                {
-                    "name": name,
-                    "content": section["direct_content"],
-                    "tokens": self._estimate_token_count(section["direct_content"]),
-                    "has_children": False,
-                    "heading_idx": None,
-                }
-            )
-        for child_idx in section.get("child_indices", []):
-            children.append({"heading_idx": child_idx})
-
-        await self._process_sections_with_merge(
-            ops, content, headings, section_dir, children, name, max_size, min_size
-        )
+        # Always flat layout: oversized content is split into numbered files
+        # directly under parent_dir. Subdirectory layout was removed — nested
+        # dirs from heuristic heading levels produced same-name multi-level dirs.
+        await self._split_content(ops, parent_dir, name, content_text, max_size)
 
     async def _split_content(
         self, ops: List[_LayoutOp], section_dir: str, name: str, content: str, max_size: int
