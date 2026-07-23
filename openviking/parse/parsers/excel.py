@@ -120,6 +120,7 @@ class ExcelParser(BaseParser):
                 for col_idx in range(sheet.ncols):
                     row_data.append(self._format_xls_cell(sheet.cell(row_idx, col_idx), wb, xlrd))
                 rows.append(row_data)
+            rows = self._collapse_empty_rows(rows)
 
             if rows:
                 from openviking.parse.base import format_table_to_markdown
@@ -173,6 +174,26 @@ class ExcelParser(BaseParser):
         # XL_CELL_TEXT or fallback
         return str(cell.value) if cell.value is not None else ""
 
+    @staticmethod
+    def _collapse_empty_rows(rows: List[List[str]], max_consecutive: int = 1) -> List[List[str]]:
+        """折叠整行空白：保留至多 max_consecutive 个连续空行，更长的空白段压掉。
+
+        openpyxl 的 max_row 会带上 used-range 里的格式/历史残留行（sheet 尾部
+        可达数百个连续空行），原样输出会稀释 chunk、把 section 切成空白页；
+        但数据区中部的单个空行可能是有意的分组分隔，不能误伤。
+        """
+        result: List[List[str]] = []
+        run = 0
+        for row in rows:
+            if any(str(cell).strip() for cell in row):
+                run = 0
+                result.append(row)
+            else:
+                run += 1
+                if run <= max_consecutive:
+                    result.append(row)
+        return result
+
     def _convert_to_markdown(self, path: Path, openpyxl) -> str:
         """Convert Excel spreadsheet to Markdown string."""
         wb = openpyxl.load_workbook(path, data_only=True)
@@ -217,6 +238,7 @@ class ExcelParser(BaseParser):
                 else:
                     row_data.append(str(cell))
             rows.append(row_data)
+        rows = self._collapse_empty_rows(rows)
 
         if rows:
             from openviking.parse.base import format_table_to_markdown
