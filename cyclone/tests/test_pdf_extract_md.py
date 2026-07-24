@@ -35,9 +35,10 @@ logging.getLogger("pdfminer").setLevel(logging.ERROR)
 # 基础测试文件
 # ---------------------------------------------------------------------------
 PDF_PATHS = [
-    Path("./data/CyClaw-2pages.pdf"),
-    Path("./data/CyClaw-5pages.pdf"),
-    Path("./data/CyClaw用户操作手册.pdf"),
+    # Path("./data/CyClaw-2pages.pdf"),
+    # Path("./data/CyClaw-5pages.pdf"),
+    # Path("./data/CyClaw用户操作手册.pdf"),
+    # Path("./data/test-pdf.pdf"),
     Path("./data/test-pdf.pdf"),
 ]
 
