@@ -3,11 +3,12 @@
 import os
 from openviking_sdk import SyncHTTPClient
 
-SERVER = "http://192.168.198.128:11933"
+# SERVER = "http://192.168.198.128:11933"
+SERVER = "http://10.86.20.10:11933/"
 API_KEY = "ak-d962b560f65644e3a91b3bb6bf9e5467"
 ACCOUNT = "cycloneclaw"
 # USER = "user-01"
-USER = "4"
+USER = "3"
 
 # Use absolute path
 TEST_FILE = os.path.join(os.path.dirname(__file__), "data", "simple.md")
@@ -264,7 +265,7 @@ def t_search_knowledge_space():
     """搜索知识空间 viking://user/3/resources/knowledge_spaces/test1"""
     client = _client()
     try:
-        target = "viking://user/3/resources/knowledge_spaces/test1"
+        target = "viking://user/3/resources/knowledge_spaces"
 
         # 1. 先列出知识空间中的文件
         entries = client.ls(target)
@@ -281,12 +282,13 @@ def t_search_knowledge_space():
         tests = [
             # ("scoped", "Agent", target),
             # ("scoped", "报销", target),
-            ("viking://user/3/resources/knowledge_spaces/test1", "报销制度", "viking://user/3/resources/knowledge_spaces/test1"),
+            # ("viking://user/3/resources/knowledge_spaces/test1", "报销制度", "viking://user/3/resources/knowledge_spaces/test1"),
             # ("viking://resources", "报销", ["viking://resources"]),
             #  ("viking://resources", "报销制度 费用报销 报销政策", "viking://resources")
             # ("viking://resources", "Agent", "viking://resources"),
             # ("parent", "Agent", "viking://user/3/resources"),
             # ("all", "Agent", ""),
+            ("viking://user/3/resources/knowledge_spaces/产品文档", "Cyclaw", "viking://user/3/resources/knowledge_spaces/产品文档"),
         ]
         import json
         for label, query, tgt in tests:
@@ -345,6 +347,6 @@ if __name__ == "__main__":
     # t_task_polling()
     # t_read_resource()
     # t_read_png_resource()
-    # t_search_knowledge_space()
+    t_search_knowledge_space()
     # t_reindex()
-    t_delete_file()
+    # t_delete_file()
